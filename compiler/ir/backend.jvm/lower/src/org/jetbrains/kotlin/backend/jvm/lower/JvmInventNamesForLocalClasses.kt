@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.org.objectweb.asm.Type
 
-val inventNamesForLocalClassesPhase = makeIrFilePhase<JvmBackendContext>(
+val inventNamesForLocalClassesPhase = makeIrModulePhase<JvmBackendContext>(
 //val inventNamesForLocalClassesPhase = makeIrModulePhase<JvmBackendContext>(
     { context -> JvmInventNamesForLocalClasses(context) },
     name = "InventNamesForLocalClasses",
@@ -24,7 +24,7 @@ val inventNamesForLocalClassesPhase = makeIrFilePhase<JvmBackendContext>(
     prerequisite = setOf(mainMethodGenerationPhase)
 )
 
-val inventNamesForLocalClassesPhase2 = makeIrFilePhase<JvmBackendContext>(
+val inventNamesForLocalClassesPhase2 = makeIrModulePhase<JvmBackendContext>(
 //val inventNamesForLocalClassesPhase = makeIrModulePhase<JvmBackendContext>(
     { context -> JvmInventNamesForLocalClasses(context) },
     name = "InventNamesForLocalClasses2",

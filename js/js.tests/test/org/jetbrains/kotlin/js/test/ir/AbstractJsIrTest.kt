@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.js.test.ir
 
 import com.intellij.testFramework.TestDataFile
+import org.jetbrains.kotlin.ir.backend.js.functionInliningPhase
 import org.jetbrains.kotlin.js.test.AbstractJsBlackBoxCodegenTestBase
 import org.jetbrains.kotlin.js.test.JsAdditionalSourceProvider
 import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade

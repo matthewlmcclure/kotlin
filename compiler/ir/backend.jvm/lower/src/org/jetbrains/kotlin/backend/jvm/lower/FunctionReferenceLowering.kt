@@ -47,21 +47,11 @@ internal val functionReferencePhase = makeIrFilePhase(
     description = "Construct instances of anonymous KFunction subclasses for function references"
 )
 
-internal val functionReferencePhase2 = makeIrFilePhase<JvmBackendContext>(
-    { FunctionReferenceLowering(it).apply { second = true } },
-    name = "FunctionReference2",
-    description = "Construct instances of anonymous KFunction subclasses for function references"
-)
-
 internal class FunctionReferenceLowering(private val context: JvmBackendContext) : FileLoweringPass, IrElementTransformerVoidWithContext() {
     private val crossinlineLambdas = HashSet<IrSimpleFunction>()
-    public var second = false
 
     private val IrFunctionReference.isIgnored: Boolean
         get() = (!type.isFunctionOrKFunction() && !isSuspendFunctionReference()) || origin == JvmLoweredStatementOrigin.INLINE_LAMBDA
-
-    private val IrFunctionReference.isIgnored2: Boolean
-        get() = (!type.isFunctionOrKFunction() && !isSuspendFunctionReference())
 
     // `suspend` function references are the same as non-`suspend` ones, just with an extra continuation parameter;
     // however, suspending lambdas require different generation implemented in SuspendLambdaLowering
@@ -97,14 +87,6 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
             return super.visitBlock(expression)
 
         val reference = expression.statements.last() as IrFunctionReference
-        if (second) {
-            expression.statements.dropLast(1).forEach { it.transform(this, null) }
-            reference.transformChildrenVoid(this)
-            val temp = FunctionReferenceBuilder(reference).build() as IrBlock
-            temp.statements.add(0, expression.statements[0] as IrFunction)
-            return temp
-        }
-
         if (reference.isIgnored)
             return super.visitBlock(expression)
 
