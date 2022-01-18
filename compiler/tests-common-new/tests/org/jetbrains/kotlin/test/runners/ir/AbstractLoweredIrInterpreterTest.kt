@@ -45,7 +45,7 @@ open class AbstractLoweredIrInterpreterTest : AbstractJvmBlackBoxCodegenTestBase
 
             forTestsMatching("compiler/testData/ir/loweredIr/interpreter/*") {
                 defaultDirectives {
-                    DUMP_IR_FOR_GIVEN_PHASES with constEvaluationPhase
+//                    DUMP_IR_FOR_GIVEN_PHASES with constEvaluationPhase // TODO uncomment
                 }
             }
 

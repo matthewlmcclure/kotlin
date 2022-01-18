@@ -5,8 +5,11 @@
 
 package org.jetbrains.kotlin.test.runners.codegen
 
+import org.jetbrains.kotlin.test.backend.handlers.PhasedJvmIrDumpHandler
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
+import org.jetbrains.kotlin.test.builders.configureJvmArtifactsHandlersStep
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 
 open class AbstractBlackBoxInlineCodegenTest : AbstractBlackBoxCodegenTest() {
     override fun configure(builder: TestConfigurationBuilder) {
@@ -19,6 +22,16 @@ open class AbstractIrBlackBoxInlineCodegenTest : AbstractIrBlackBoxCodegenTest()
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.useInlineHandlers()
+
+//        with(builder) {
+//            defaultDirectives {
+//                CodegenTestDirectives.DUMP_IR_FOR_GIVEN_PHASES with "FunctionReference"
+//            }
+//
+//            configureJvmArtifactsHandlersStep {
+//                useHandlers(::PhasedJvmIrDumpHandler)
+//            }
+//        }
     }
 }
 

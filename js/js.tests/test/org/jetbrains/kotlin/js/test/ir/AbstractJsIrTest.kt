@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.parsing.parseBoolean
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.test.backend.handlers.PhasedJsIrDumpHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.*
@@ -110,7 +111,20 @@ open class AbstractIrJsCodegenBoxErrorTest : AbstractJsIrTest(
 open class AbstractIrJsCodegenInlineTest : AbstractJsIrTest(
     pathToTestDir = "compiler/testData/codegen/boxInline/",
     testGroupOutputDirPrefix = "codegen/irBoxInline/"
-)
+) {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        with(builder) {
+            defaultDirectives {
+                DUMP_IR_FOR_GIVEN_PHASES with "FunctionInliningPhase"
+            }
+
+            configureJsArtifactsHandlersStep {
+                useHandlers(::PhasedJsIrDumpHandler)
+            }
+        }
+    }
+}
 
 open class AbstractIrJsTypeScriptExportTest : AbstractJsIrTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",

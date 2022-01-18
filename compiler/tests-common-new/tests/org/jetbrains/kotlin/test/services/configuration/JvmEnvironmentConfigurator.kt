@@ -9,6 +9,7 @@ import com.intellij.ide.highlighter.JavaFileType
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.psi.PsiJavaModule.MODULE_INFO_FILE
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
+import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
 import org.jetbrains.kotlin.backend.jvm.jvmPhases
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
@@ -393,8 +394,8 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         if (phases.isNotEmpty()) {
             val phaseConfig = PhaseConfig(
                 jvmPhases,
-                toDumpStateBefore = phases,
-                toDumpStateAfter = phases,
+//                toDumpStateAfter = jvmPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
+                toDumpStateBefore = jvmPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
                 dumpToDirectory = dumpDirectory.absolutePath
             )
             put(CLIConfigurationKeys.PHASE_CONFIG, phaseConfig)
