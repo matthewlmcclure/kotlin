@@ -117,7 +117,7 @@ open class AbstractIrJsCodegenInlineTest : AbstractJsIrTest(
         super.configure(builder)
         with(builder) {
             defaultDirectives {
-                DUMP_IR_FOR_GIVEN_PHASES with "FunctionInliningPhase"
+                DUMP_IR_FOR_GIVEN_PHASES with "LocalDeclarationsLowering"
             }
 
             configureJsArtifactsHandlersStep {

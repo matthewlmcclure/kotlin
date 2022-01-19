@@ -394,7 +394,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         if (phases.isNotEmpty()) {
             val phaseConfig = PhaseConfig(
                 jvmPhases,
-//                toDumpStateAfter = jvmPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
+                toDumpStateAfter = jvmPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
                 toDumpStateBefore = jvmPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
                 dumpToDirectory = dumpDirectory.absolutePath
             )

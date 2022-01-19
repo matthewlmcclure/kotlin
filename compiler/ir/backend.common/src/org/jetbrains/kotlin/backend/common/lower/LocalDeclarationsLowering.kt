@@ -624,7 +624,7 @@ class LocalDeclarationsLowering(
                     return if (suggestUniqueNames) "$baseName\$${it.index}" else baseName
             }
 
-            return declarationName
+            return declarationName.replace("<", "\$_").replace(">", "\$_")
         }
 
         private fun generateNameForLiftedDeclaration(
@@ -640,7 +640,7 @@ class LocalDeclarationsLowering(
             return if (parents.size == 1 && declaration.parent is IrClass)
                 Name.identifier("_init_\$$nameFromParents")
             else
-                Name.identifier(nameFromParents)
+                Name.identifier(nameFromParents.replace("<", "\$_").replace(">", "\$_"))
         }
 
         private fun createLiftedDeclaration(localFunctionContext: LocalFunctionContext) {
@@ -846,7 +846,7 @@ class LocalDeclarationsLowering(
             val base = if (declaration.name.isSpecial) {
                 declaration.name.asStringStripSpecialMarkers()
             } else {
-                declaration.name.asString()
+                declaration.name.asString().replace("<", "\$_").replace(">", "\$_")
             }
 
             return if (isExplicitLocalFunction && declaration is IrVariable) {
