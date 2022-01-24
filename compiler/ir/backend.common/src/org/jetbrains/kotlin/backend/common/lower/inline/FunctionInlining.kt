@@ -29,9 +29,7 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun IrValueParameter.isInlineParameter(type: IrType = this.type) =
@@ -161,12 +159,25 @@ class FunctionInlining(
 
         fun inline() = inlineFunction(callSite, callee, true)
 
+        private fun IrElement.copy(): IrElement {
+            return copyIrElement.copy(this).apply {
+                accept(object : IrElementVisitorVoid {
+                    override fun visitElement(element: IrElement) {
+                        if (element is IrAttributeContainer) {
+                            element.attributeOwnerId = element
+                        }
+                        element.acceptChildrenVoid(this)
+                    }
+                }, null)
+            }
+        }
+
         private fun inlineFunction(
             callSite: IrFunctionAccessExpression,
             callee: IrFunction,
             performRecursiveInline: Boolean
         ): IrReturnableBlock {
-            val copiedCallee = (copyIrElement.copy(callee) as IrFunction).apply {
+            val copiedCallee = (callee.copy() as IrFunction).apply {
 
                 // It's a hack to overtake another hack in PIR. Due to PersistentIrFactory registers every created declaration
                 // there also get temporary declaration like this which leads to some unclear behaviour. Since I am not aware
@@ -244,7 +255,7 @@ class FunctionInlining(
                     if (argument is IrGetValueWithoutLocation)
                         argument.withLocation(newExpression.startOffset, newExpression.endOffset)
                     else
-                        (copyIrElement.copy(argument) as IrExpression)
+                        (argument.copy() as IrExpression)
 
                 if (insertAdditionalImplicitCasts)
                     ret = ret.implicitCastIfNeededTo(newExpression.type)
@@ -353,10 +364,10 @@ class FunctionInlining(
                                 val arg = boundFunctionParametersMap[parameter]!!
                                 if (arg is IrGetValueWithoutLocation)
                                     arg.withLocation(irCall.startOffset, irCall.endOffset)
-                                else copyIrElement.copy(arg) as IrExpression
+                                else arg.copy() as IrExpression
                             } else {
                                 if (unboundIndex == valueParameters.size && parameter.defaultValue != null)
-                                    copyIrElement.copy(parameter.defaultValue!!.expression) as IrExpression
+                                    parameter.defaultValue!!.expression.copy() as IrExpression
                                 else if (!parameter.isVararg) {
                                     assert(unboundIndex < valueParameters.size) {
                                         "Attempt to use unbound parameter outside of the callee's value parameters"
