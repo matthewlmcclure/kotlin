@@ -138,34 +138,36 @@ internal val IrClass.isGeneratedLambdaClass: Boolean
             origin == JvmLoweredDeclarationOrigin.FUNCTION_REFERENCE_IMPL ||
             origin == JvmLoweredDeclarationOrigin.GENERATED_PROPERTY_REFERENCE
 
+private class JvmVisibilityPolicy : VisibilityPolicy {
+    // Note: any condition that results in non-`LOCAL` visibility here should be duplicated in `JvmLocalClassPopupLowering`,
+    // else it won't detect the class as local.
+    override fun forClass(declaration: IrClass, inInlineFunctionScope: Boolean): DescriptorVisibility =
+        if (declaration.isGeneratedLambdaClass) {
+            scopedVisibility(inInlineFunctionScope)
+        } else {
+            declaration.visibility
+        }
+
+    override fun forConstructor(declaration: IrConstructor, inInlineFunctionScope: Boolean): DescriptorVisibility =
+        if (declaration.parentAsClass.isAnonymousObject)
+            scopedVisibility(inInlineFunctionScope)
+        else
+            declaration.visibility
+
+    override fun forCapturedField(value: IrValueSymbol): DescriptorVisibility =
+        JavaDescriptorVisibilities.PACKAGE_VISIBILITY // avoid requiring a synthetic accessor for it
+
+    private fun scopedVisibility(inInlineFunctionScope: Boolean): DescriptorVisibility =
+        if (inInlineFunctionScope) DescriptorVisibilities.PUBLIC else JavaDescriptorVisibilities.PACKAGE_VISIBILITY
+}
+
 internal val localDeclarationsPhase = makeIrFilePhase(
 //internal val localDeclarationsPhase = makeIrModulePhase(
     { context ->
         LocalDeclarationsLowering(
             context,
             NameUtils::sanitizeAsJavaIdentifier,
-            object : VisibilityPolicy {
-                // Note: any condition that results in non-`LOCAL` visibility here should be duplicated in `JvmLocalClassPopupLowering`,
-                // else it won't detect the class as local.
-                override fun forClass(declaration: IrClass, inInlineFunctionScope: Boolean): DescriptorVisibility =
-                    if (declaration.isGeneratedLambdaClass) {
-                        scopedVisibility(inInlineFunctionScope)
-                    } else {
-                        declaration.visibility
-                    }
-
-                override fun forConstructor(declaration: IrConstructor, inInlineFunctionScope: Boolean): DescriptorVisibility =
-                    if (declaration.parentAsClass.isAnonymousObject)
-                        scopedVisibility(inInlineFunctionScope)
-                    else
-                        declaration.visibility
-
-                override fun forCapturedField(value: IrValueSymbol): DescriptorVisibility =
-                    JavaDescriptorVisibilities.PACKAGE_VISIBILITY // avoid requiring a synthetic accessor for it
-
-                private fun scopedVisibility(inInlineFunctionScope: Boolean): DescriptorVisibility =
-                    if (inInlineFunctionScope) DescriptorVisibilities.PUBLIC else JavaDescriptorVisibilities.PACKAGE_VISIBILITY
-            },
+            JvmVisibilityPolicy(),
             forceFieldsForInlineCaptures = true,
             postLocalDeclarationLoweringCallback = context.localDeclarationsLoweringData?.let {
                 { data ->
@@ -298,25 +300,33 @@ private val kotlinNothingValueExceptionPhase = makeIrFilePhase<CommonBackendCont
     description = "Throw proper exception for calls returning value of type 'kotlin.Nothing'"
 )
 
-private val localClassesInInlineLambdasPhase = makeIrModulePhase(
+private val localClassesInInlineLambdasPhase = makeIrModulePhase<JvmBackendContext>(
 //private val localClassesInInlineLambdasPhase = makeIrFilePhase(
-    ::LocalClassesInInlineLambdasLowering,
+    { context ->
+        LocalClassesInInlineLambdasLowering(
+            context, NameUtils::sanitizeAsJavaIdentifier, JvmVisibilityPolicy(), forceFieldsForInlineCaptures = true
+        )
+    },
     name = "LocalClassesInInlineLambdasPhase",
     description = "Extract local classes from inline lambdas",
 //    prerequisite = setOf(inventNamesForLocalClassesPhase)
 )
 
-private val localClassesInInlineFunctionsPhase = makeIrModulePhase(
+private val localClassesInInlineFunctionsPhase = makeIrModulePhase<JvmBackendContext>(
 //private val localClassesInInlineFunctionsPhase = makeIrFilePhase(
-    ::LocalClassesInInlineFunctionsLowering,
+    { context ->
+        LocalClassesInInlineFunctionsLowering(
+            context, NameUtils::sanitizeAsJavaIdentifier, JvmVisibilityPolicy(), forceFieldsForInlineCaptures = true
+        )
+    },
     name = "LocalClassesInInlineFunctionsPhase",
     description = "Extract local classes from inline functions",
 //    prerequisite = setOf(inventNamesForLocalClassesPhase)
 )
 
-private val localClassesExtractionFromInlineFunctionsPhase = makeIrModulePhase(
+private val localClassesExtractionFromInlineFunctionsPhase = makeIrModulePhase<JvmBackendContext>(
 //private val localClassesExtractionFromInlineFunctionsPhase = makeIrFilePhase(
-    ::LocalClassesExtractionFromInlineFunctionsLowering,
+    { LocalClassesExtractionFromInlineFunctionsLowering(it) },
     name = "localClassesExtractionFromInlineFunctionsPhase",
     description = "Move local classes from inline functions into nearest declaration container",
 //    prerequisite = setOf(localClassesInInlineFunctionsPhase)
@@ -372,7 +382,6 @@ private val jvmFilePhases = listOf(
     propertiesPhase,
     remapObjectFieldAccesses,
 
-    anonymousObjectSuperConstructorPhase,
     jvmBuiltInsPhase,
 
     rangeContainsLoweringPhase,
@@ -388,7 +397,7 @@ private val jvmFilePhases = listOf(
 
     assertionPhase,
     returnableBlocksPhase,
-    sharedVariablesPhase,
+//    sharedVariablesPhase,
     localDeclarationsPhase,
     // makePatchParentsPhase(),
 
@@ -479,18 +488,20 @@ private fun buildJvmLoweringPhases(
                 typeAliasAnnotationMethodsPhase then
                 jvmOverloadsAnnotationPhase then
                 mainMethodGenerationPhase then
-                inventNamesForLocalClassesPhase then
 
                 jvmLateinitLowering then
-//            sharedVariablesPhase then
+            sharedVariablesPhase then
+//            inventNamesForLocalClassesPhase then
 
-//            localClassesInInlineLambdasPhase then
-//            localClassesInInlineFunctionsPhase then
-//            localClassesExtractionFromInlineFunctionsPhase then
+            anonymousObjectSuperConstructorPhase then
+            localClassesInInlineLambdasPhase then
+            localClassesInInlineFunctionsPhase then
+            localClassesExtractionFromInlineFunctionsPhase then
 
                 functionInliningPhase then
                 provisionalFunctionExpressionPhase then
-                inventNamesForLocalClassesPhase2 then
+//            inventNamesForLocalClassesPhase2 then
+            inventNamesForNewLocalClassesPhase then
 //            sharedVariablesPhase then
 
 

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrVariable
+import org.jetbrains.kotlin.ir.declarations.copyAttributes
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
@@ -70,7 +71,7 @@ class ProvisionalFunctionExpressionLowering :
                     valueArgumentsCount = function.valueParameters.size,
                     reflectionTarget = null,
                     origin = origin
-                )
+                )//.copyAttributes(expression.attributeOwnerId)
             )
         )
     }
