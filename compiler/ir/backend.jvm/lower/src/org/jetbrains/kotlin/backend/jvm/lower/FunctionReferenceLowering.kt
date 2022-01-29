@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrVariableSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.name.Name
@@ -119,32 +118,11 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
 
     override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
         expression.transformChildrenVoid(this)
-//        if (second) {
-//            return if (expression.isIgnored2)
-//                expression
-//            else
-//                FunctionReferenceBuilder(expression).build()
-//        }
         return if (expression.isIgnored)
             expression
         else
             FunctionReferenceBuilder(expression).build()
     }
-
-//    override fun visitConstructorCall(expression: IrConstructorCall): IrExpression {
-//        if (!second) return super.visitConstructorCall(expression)
-//
-//        for (i in 0 until expression.valueArgumentsCount) {
-//            val arg = expression.getValueArgument(i)
-//            if (arg is IrFunctionReference) {
-//                arg.transformChildrenVoid(this)
-//                val temp = FunctionReferenceBuilder(arg).build()
-//                expression.putValueArgument(i, temp)
-//            }
-//        }
-//
-//        return super.visitConstructorCall(expression)
-//    }
 
     private fun getDeclarationParentForDelegatingLambda(): IrDeclarationParent {
         for (s in allScopes.asReversed()) {

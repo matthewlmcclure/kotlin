@@ -31,16 +31,7 @@ import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
  */
 object SignatureString : IntrinsicMethod() {
     override fun invoke(expression: IrFunctionAccessExpression, codegen: ExpressionCodegen, data: BlockInfo): PromisedValue {
-//        val arg = expression.getValueArgument(0)
-//        val function = if (arg is IrBlock) {
-//            val clazz = arg.statements[0] as IrClass
-//            val invokeFun = clazz.declarations.filterIsInstance<IrFunction>().first { it.name == OperatorNameConventions.INVOKE }
-//            (invokeFun.body!!.statements.single() as IrCall).symbol.owner
-//        } else {
-//            (expression.getValueArgument(0) as IrFunctionReference).symbol.owner
-//        }
         val function = (expression.getValueArgument(0) as IrFunctionReference).symbol.owner
-
         generateSignatureString(codegen.mv, function, codegen.context)
         return MaterialValue(codegen, AsmTypes.JAVA_STRING_TYPE, codegen.context.irBuiltIns.stringType)
     }
