@@ -37,7 +37,7 @@ class BuilderFactoryForDuplicateClassNameDiagnostics(
         //workaround for inlined anonymous objects
         if (origin.element != another.element) {
             // TODO fix
-            //reportError(internalName, origin, another)
+            reportError(internalName, origin, another)
         }
     }
 
