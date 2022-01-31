@@ -132,7 +132,8 @@ val IrDeclaration.isJvmInlineClassConstructor get() =
 val IrDeclaration.isTopLevelDeclaration get() =
     parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField
 
-val IrDeclaration.isAnonymousObject get() = this is IrClass && name == SpecialNames.NO_NAME_PROVIDED
+// TODO find better solution
+val IrDeclaration.isAnonymousObject get() = this is IrClass && name.asString().startsWith(SpecialNames.NO_NAME_PROVIDED.asString())
 
 val IrDeclaration.isAnonymousFunction get() = this is IrSimpleFunction && name == SpecialNames.NO_NAME_PROVIDED
 
