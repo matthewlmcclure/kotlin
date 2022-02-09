@@ -316,7 +316,7 @@ class JsEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigu
         if (phases.isNotEmpty()) {
             val phaseConfig = PhaseConfig(
                 jsPhases,
-//                toDumpStateAfter = jsPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
+                toDumpStateAfter = jsPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
                 toDumpStateBefore = jsPhases.toPhaseMap().filter { it.key in phases }.map { it.value }.toSet(),
                 dumpToDirectory = dumpDirectory.absolutePath
             )

@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.js.test.ir
 
 import com.intellij.testFramework.TestDataFile
-import org.jetbrains.kotlin.ir.backend.js.functionInliningPhase
 import org.jetbrains.kotlin.js.test.AbstractJsBlackBoxCodegenTestBase
 import org.jetbrains.kotlin.js.test.JsAdditionalSourceProvider
 import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
@@ -117,7 +116,7 @@ open class AbstractIrJsCodegenInlineTest : AbstractJsIrTest(
         super.configure(builder)
         with(builder) {
             defaultDirectives {
-//                DUMP_IR_FOR_GIVEN_PHASES with "LocalDeclarationsLowering"
+//                DUMP_IR_FOR_GIVEN_PHASES with "PropertyReferenceLowering"
             }
 
             configureJsArtifactsHandlersStep {

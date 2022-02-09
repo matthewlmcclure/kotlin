@@ -23,15 +23,15 @@ open class AbstractIrBlackBoxInlineCodegenTest : AbstractIrBlackBoxCodegenTest()
         super.configure(builder)
         builder.useInlineHandlers()
 
-//        with(builder) {
-//            defaultDirectives {
-//                CodegenTestDirectives.DUMP_IR_FOR_GIVEN_PHASES with "FunctionReference"
-//            }
-//
-//            configureJvmArtifactsHandlersStep {
-//                useHandlers(::PhasedJvmIrDumpHandler)
-//            }
-//        }
+        with(builder) {
+            defaultDirectives {
+//                CodegenTestDirectives.DUMP_IR_FOR_GIVEN_PHASES with "FunctionInliningPhase"
+            }
+
+            configureJvmArtifactsHandlersStep {
+                useHandlers(::PhasedJvmIrDumpHandler)
+            }
+        }
     }
 }
 
