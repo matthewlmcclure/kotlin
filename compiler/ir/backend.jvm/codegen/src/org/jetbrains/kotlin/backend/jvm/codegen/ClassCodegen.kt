@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
@@ -40,6 +41,8 @@ import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.IrTypeProjection
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
@@ -413,6 +416,24 @@ class ClassCodegen private constructor(
         )
         val mv = with(node) { visitor.newMethod(method.descriptorOrigin, access, name, desc, signature, exceptions.toTypedArray()) }
         val smapCopier = SourceMapCopier(classSMAP, smap)
+//        method.accept(object : IrElementVisitorVoid {
+//            private var localSmapCopier = smapCopier
+//
+//            override fun visitElement(element: IrElement) {
+//                element.acceptChildrenVoid(this)
+//            }
+//
+//            override fun visitLineNumber(element: IrLineNumber, data: Nothing?) {
+//                if (element.sourcePosition != null) {
+//                    val (line, file, path) = element.sourcePosition!!
+//                    val callable = context.methodSignatureMapper.mapToCallableMethod(element.irFunction!!.first, element.irFunction!!.second)
+//                    val nodeAndSmap =
+//                    localSmapCopier = SourceMapCopier(localSmapCopier.parent, ..., SourcePosition(line, file, path))
+//                } else {
+//                    localSmapCopier.mapLineNumber(element.lineNumber)
+//                }
+//            }
+//        }, null)
         val smapCopyingVisitor = object : MethodVisitor(Opcodes.API_VERSION, mv) {
             override fun visitLineNumber(line: Int, start: Label) =
                 super.visitLineNumber(smapCopier.mapLineNumber(line), start)

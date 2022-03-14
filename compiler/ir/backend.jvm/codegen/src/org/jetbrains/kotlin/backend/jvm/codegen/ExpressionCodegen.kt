@@ -35,6 +35,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedKotlinType
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
@@ -55,6 +56,7 @@ import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.types.TypeSystemCommonBackendContext
 import org.jetbrains.kotlin.types.computeExpandedTypeForInlineClass
 import org.jetbrains.kotlin.types.model.TypeParameterMarker
+import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.utils.keysToMap
@@ -141,6 +143,7 @@ class ExpressionCodegen(
     val smap: SourceMapper,
     val reifiedTypeParametersUsages: ReifiedTypeParametersUsages,
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
+    private val localSmapCopiers: MutableList<SourceMapCopier> = mutableListOf()
 
     override fun toString(): String = signature.toString()
 
@@ -855,6 +858,38 @@ class ExpressionCodegen(
                     "is not implemented, or it should have been lowered:\n" +
                     element.render()
         )
+
+    override fun visitLineNumber(element: IrLineNumber, data: BlockInfo): PromisedValue {
+        if (element.inlineCall != null) {
+            val inlineCall = element.inlineCall!!
+            val inlineCallOwner = inlineCall.symbol.owner
+            if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
+                val classMap = SMAP(context.getSourceMapper(element.callee!!.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
+                localSmapCopiers += SourceMapCopier(smap, classMap, null)
+            } else {
+                val nodeAndSmap = element.callee!!.parentClassOrNull!!.declarations
+                    .filterIsInstance<IrSimpleFunction>()
+                    .filter { it.attributeOwnerId == inlineCallOwner.attributeOwnerId }
+                    .map { actualCallee ->
+                        val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
+                        val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
+                        val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
+                        (callGenerator as InlineCodegen<*>).compileInline()
+                    }.first()
+                val (line, file, _) = element.sourcePosition!!
+                val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
+                val path = type?.className?.replace('.', '/')
+                    ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
+                    ?: ""
+                localSmapCopiers += SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path))
+            }
+        } else if (element.lineNumber == -2) {
+            localSmapCopiers.removeLast()
+        } else {
+            localSmapCopiers.last().mapLineNumber(element.lineNumber).let { mv.visitLineNumber(it, markNewLabel()) }
+        }
+        return unitValue
+    }
 
     override fun visitClass(declaration: IrClass, data: BlockInfo): PromisedValue {
         if (declaration.origin != JvmLoweredDeclarationOrigin.CONTINUATION_CLASS) {

@@ -133,6 +133,8 @@ class FunctionInlining(
         return inliner.inline()
     }
 
+    override fun visitLineNumber(element: IrLineNumber, data: Nothing?): IrElement = element
+
     private val IrFunction.needsInlining get() = this.isInline && !this.isExternal
 
     private inner class Inliner(
@@ -211,7 +213,29 @@ class FunctionInlining(
             val newStatements = mutableListOf<IrStatement>()
 
             newStatements.addAll(evaluationStatements)
-            statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
+            val irFile = (parent as? IrFunction)?.fileOrNull
+            val fileEntry = irFile?.fileEntry
+            val calleeFile = callee.fileEntry
+            if (fileEntry != null) {
+//                if (callSite.symbol.owner.name != OperatorNameConventions.INVOKE) {
+                val sourceInfo = Triple(fileEntry.getLineNumber(callSite.startOffset) + 1, fileEntry.name.drop(1), "test/_1Kt")
+                val newCallSite = callSite as? IrCall
+                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, sourceInfo, newCallSite, callee)
+//                }
+                for ((i, statement) in statements.withIndex()) {
+
+                    val newStatement = statement.transform(transformer, data = null) as IrStatement
+                    val lineNumber = calleeFile.getLineNumber(newStatement.startOffset) + 1
+                    newStatements += newStatement
+                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, lineNumber, null, null, null)
+//                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, calleeFile.getLineNumber(statement.endOffset), null, null, null)
+                }
+//                newStatements += IrLineNumber(callSite.endOffset, callSite.endOffset, context.irBuiltIns.nothingType, calleeFile.getLineNumber(callSite.symbol.owner.endOffset) + 1, null, null, null)
+                newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, -2, null, null, null)
+
+            } else {
+                statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
+            }
 
             return IrReturnableBlockImpl(
                 startOffset = callSite.startOffset,
@@ -236,6 +260,8 @@ class FunctionInlining(
                         }
                         return expression
                     }
+
+                    override fun visitLineNumber(element: IrLineNumber, data: Nothing?) = element
                 })
                 patchDeclarationParents(parent) // TODO: Why it is not enough to just run SetDeclarationsParentVisitor?
             }
@@ -285,6 +311,8 @@ class FunctionInlining(
                         super.visitCall(expression)
                 }
             }
+
+            override fun visitLineNumber(element: IrLineNumber, data: Nothing?) = element
 
             fun inlineFunctionExpression(irCall: IrCall, irFunctionExpression: IrFunctionExpression): IrExpression {
                 // Inline the lambda. Lambda parameters will be substituted with lambda arguments.
