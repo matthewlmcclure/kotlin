@@ -5,11 +5,8 @@
 
 package org.jetbrains.kotlin.ir.declarations
 
-import org.jetbrains.kotlin.ir.IrElementBase
-import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
@@ -19,7 +16,6 @@ class IrLineNumber(
     override val endOffset: Int,
     override var type: IrType,
     val lineNumber: Int,
-    val sourcePosition: Triple<Int, String, String>?,
     var inlineCall: IrCall?,
     var callee: IrFunction?
 ) : IrExpression() {

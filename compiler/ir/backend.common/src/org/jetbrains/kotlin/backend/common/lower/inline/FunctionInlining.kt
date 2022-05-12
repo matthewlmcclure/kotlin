@@ -217,22 +217,14 @@ class FunctionInlining(
             val fileEntry = irFile?.fileEntry
             val calleeFile = callee.fileEntry
             if (fileEntry != null) {
-//                if (callSite.symbol.owner.name != OperatorNameConventions.INVOKE) {
-                val sourceInfo = Triple(fileEntry.getLineNumber(callSite.startOffset) + 1, fileEntry.name.drop(1), "test/_1Kt")
-                val newCallSite = callSite as? IrCall
-                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, sourceInfo, newCallSite, callee)
-//                }
-                for ((i, statement) in statements.withIndex()) {
-
+                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, callSite as IrCall, callee)
+                for (statement in statements) {
                     val newStatement = statement.transform(transformer, data = null) as IrStatement
                     val lineNumber = calleeFile.getLineNumber(newStatement.startOffset) + 1
                     newStatements += newStatement
-                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, lineNumber, null, null, null)
-//                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, calleeFile.getLineNumber(statement.endOffset), null, null, null)
+                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, lineNumber, null, null)
                 }
-//                newStatements += IrLineNumber(callSite.endOffset, callSite.endOffset, context.irBuiltIns.nothingType, calleeFile.getLineNumber(callSite.symbol.owner.endOffset) + 1, null, null, null)
-                newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, -2, null, null, null)
-
+                newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, -2, null, null)
             } else {
                 statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
             }

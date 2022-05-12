@@ -876,7 +876,8 @@ class ExpressionCodegen(
                         val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
                         (callGenerator as InlineCodegen<*>).compileInline()
                     }.first()
-                val (line, file, _) = element.sourcePosition!!
+                val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
+                val file = fileEntry.name.drop(1)
                 val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
                 val path = type?.className?.replace('.', '/')
                     ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
