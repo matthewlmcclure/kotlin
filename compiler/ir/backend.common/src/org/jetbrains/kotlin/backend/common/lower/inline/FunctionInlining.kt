@@ -217,14 +217,15 @@ class FunctionInlining(
             val fileEntry = irFile?.fileEntry
             val calleeFile = callee.fileEntry
             if (fileEntry != null) {
-                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, callSite as IrCall, callee)
-                for (statement in statements) {
+                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, calleeFile, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, callSite as IrCall, callee)
+                for ((index, statement) in statements.withIndex()) {
                     val newStatement = statement.transform(transformer, data = null) as IrStatement
-                    val lineNumber = calleeFile.getLineNumber(newStatement.startOffset) + 1
                     newStatements += newStatement
-                    newStatements += IrLineNumber(statement.startOffset, statement.startOffset, context.irBuiltIns.nothingType, lineNumber, null, null)
+//                    if (index == statements.lastIndex) {
+//                        val lineNumber = calleeFile.getLineNumber(newStatement.startOffset) + 1
+//                        newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, calleeFile, lineNumber, null, null)
+//                    }
                 }
-                newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, -2, null, null)
             } else {
                 statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
             }

@@ -410,7 +410,7 @@ open class DeepCopyIrTreeWithSymbols(
         IrSyntheticBodyImpl(body.startOffset, body.endOffset, body.kind)
 
     override fun visitLineNumber(element: IrLineNumber, data: Nothing?): IrElement {
-        return IrLineNumber(element.startOffset, element.endOffset, element.type, element.lineNumber, element.inlineCall, element.callee)
+        return IrLineNumber(element.startOffset, element.endOffset, element.type, element.calleeFile, element.lineNumber, element.inlineCall, element.callee)
     }
 
     override fun visitExpression(expression: IrExpression): IrExpression =

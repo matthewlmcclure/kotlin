@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.diagnostics.BackendErrors
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedKotlinType
@@ -144,6 +145,7 @@ class ExpressionCodegen(
     val reifiedTypeParametersUsages: ReifiedTypeParametersUsages,
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
     private val localSmapCopiers: MutableList<SourceMapCopier> = mutableListOf()
+    private val filesStack: MutableList<IrFileEntry> = mutableListOf()
 
     override fun toString(): String = signature.toString()
 
@@ -200,7 +202,13 @@ class ExpressionCodegen(
         val offset = if (startOffset) this.startOffset else endOffset
         if (offset < 0) return
 
-        val lineNumber = getLineNumberForOffset(offset)
+        val lineNumber = if (localSmapCopiers.isNotEmpty()) {
+            val localFileEntry = filesStack.last()
+            localSmapCopiers.last().mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+        } else {
+            getLineNumberForOffset(offset)
+        }
+
         assert(lineNumber > 0)
         if (lastLineNumber != lineNumber) {
             lastLineNumber = lineNumber
@@ -455,11 +463,19 @@ class ExpressionCodegen(
         }
     }
 
-    private fun visitStatementContainer(container: IrStatementContainer, data: BlockInfo) =
-        container.statements.fold(unitValue) { prev, exp ->
+    private fun visitStatementContainer(container: IrStatementContainer, data: BlockInfo): PromisedValue {
+        val before = localSmapCopiers.size
+        val result = container.statements.fold(unitValue) { prev, exp ->
             prev.discard()
             exp.accept(this, data)
         }
+
+        if (localSmapCopiers.size != before) {
+            localSmapCopiers.removeLast()
+            filesStack.removeLast()
+        }
+        return result
+    }
 
     override fun visitBlockBody(body: IrBlockBody, data: BlockInfo): PromisedValue {
         visitStatementContainer(body, data).discard()
@@ -863,13 +879,21 @@ class ExpressionCodegen(
         if (element.inlineCall != null) {
             val inlineCall = element.inlineCall!!
             val inlineCallOwner = inlineCall.symbol.owner
+
+            inlineCall.markLineNumber(true)
+            mv.nop()
+
             if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
+                val callSite = null//localSmapCopiers.lastOrNull()?.callSite // TODO take if default call
                 val classMap = SMAP(context.getSourceMapper(element.callee!!.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
-                localSmapCopiers += SourceMapCopier(smap, classMap, null)
+                filesStack += element.calleeFile
+                localSmapCopiers += SourceMapCopier(smap, classMap, callSite)
             } else {
+//                val isDefaultCall = (0 until inlineCall.valueArgumentsCount).any { inlineCall.getValueArgument(it) == null }
                 val nodeAndSmap = element.callee!!.parentClassOrNull!!.declarations
                     .filterIsInstance<IrSimpleFunction>()
                     .filter { it.attributeOwnerId == inlineCallOwner.attributeOwnerId }
+//                    .filter { if (!isDefaultCall) true else it.name.asString().endsWith("\$default") }
                     .map { actualCallee ->
                         val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
                         val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
@@ -882,13 +906,16 @@ class ExpressionCodegen(
                 val path = type?.className?.replace('.', '/')
                     ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
                     ?: ""
+                filesStack += element.calleeFile
                 localSmapCopiers += SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path))
             }
-        } else if (element.lineNumber == -2) {
-            localSmapCopiers.removeLast()
-        } else {
-            localSmapCopiers.last().mapLineNumber(element.lineNumber).let { mv.visitLineNumber(it, markNewLabel()) }
-        }
+        } /*else {
+//            localSmapCopiers.last().mapLineNumber(element.lineNumber).let { mv.visitLineNumber(it, markNewLabel()) }
+            if (element.startOffset == -2) {
+                localSmapCopiers.removeLast()
+                filesStack.removeLast()
+            }
+        }*/
         return unitValue
     }
 

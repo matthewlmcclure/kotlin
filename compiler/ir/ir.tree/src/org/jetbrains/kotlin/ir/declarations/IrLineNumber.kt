@@ -5,40 +5,22 @@
 
 package org.jetbrains.kotlin.ir.declarations
 
+import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
 class IrLineNumber(
     override val startOffset: Int,
     override val endOffset: Int,
     override var type: IrType,
+    val calleeFile: IrFileEntry,
     val lineNumber: Int,
-    var inlineCall: IrCall?,
-    var callee: IrFunction?
+    val inlineCall: IrCall?,
+    val callee: IrFunction?
 ) : IrExpression() {
-    init {
-//        inlineCall?.let { call ->
-//            call.dispatchReceiver = null
-//            call.extensionReceiver = null
-//            (0 until call.valueArgumentsCount).forEach { call.putValueArgument(it, null) }
-//        }
-    }
-
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
         return visitor.visitLineNumber(this, data)
-    }
-
-    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
-//        inlineCall?.accept(visitor, data)
-//        callee?.accept(visitor, data)
-    }
-
-    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
-//        val transform = inlineCall?.transform(transformer, data)
-//        inlineCall = transform as? IrCall
-//        callee = callee?.transform(transformer, data) as? IrFunction
     }
 }
