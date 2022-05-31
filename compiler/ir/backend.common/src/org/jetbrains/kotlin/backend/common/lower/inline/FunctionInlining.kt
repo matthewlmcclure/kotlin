@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun IrValueParameter.isInlineParameter(type: IrType = this.type) =
@@ -133,7 +134,7 @@ class FunctionInlining(
         return inliner.inline()
     }
 
-    override fun visitLineNumber(element: IrLineNumber, data: Nothing?): IrElement = element
+    override fun visitInlineMarker(element: IrInlineMarker, data: Nothing?): IrElement = element
 
     private val IrFunction.needsInlining get() = this.isInline && !this.isExternal
 
@@ -172,6 +173,14 @@ class FunctionInlining(
                     }
                 }, null)
             }
+        }
+
+        private fun IrFunction.isInlineOnly(): Boolean {
+            val inlineOnlyName = FqName("kotlin.internal.InlineOnly")
+            if (this is IrSimpleFunction && correspondingPropertySymbol != null) {
+                return correspondingPropertySymbol!!.owner.hasAnnotation(inlineOnlyName)
+            }
+            return this.hasAnnotation(inlineOnlyName)
         }
 
         private fun inlineFunction(
@@ -213,22 +222,13 @@ class FunctionInlining(
             val newStatements = mutableListOf<IrStatement>()
 
             newStatements.addAll(evaluationStatements)
-            val irFile = (parent as? IrFunction)?.fileOrNull
-            val fileEntry = irFile?.fileEntry
-            val calleeFile = callee.fileEntry
-            if (fileEntry != null) {
-                newStatements += IrLineNumber(0, 0, context.irBuiltIns.nothingType, calleeFile, fileEntry.getLineNumber(callSite.symbol.owner.startOffset) + 1, callSite as IrCall, callee)
-                for ((index, statement) in statements.withIndex()) {
-                    val newStatement = statement.transform(transformer, data = null) as IrStatement
-                    newStatements += newStatement
-//                    if (index == statements.lastIndex) {
-//                        val lineNumber = calleeFile.getLineNumber(newStatement.startOffset) + 1
-//                        newStatements += IrLineNumber(-2, -2, context.irBuiltIns.nothingType, calleeFile, lineNumber, null, null)
-//                    }
-                }
-            } else {
-                statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
+            val fileEntry = (parent as? IrFunction)?.fileOrNull?.fileEntry
+            if (fileEntry != null && !callee.isInlineOnly()) {
+                newStatements += IrInlineMarker(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.nothingType, callSite as IrCall, callee
+                )
             }
+            statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
 
             return IrReturnableBlockImpl(
                 startOffset = callSite.startOffset,
@@ -254,7 +254,7 @@ class FunctionInlining(
                         return expression
                     }
 
-                    override fun visitLineNumber(element: IrLineNumber, data: Nothing?) = element
+                    override fun visitInlineMarker(element: IrInlineMarker, data: Nothing?) = element
                 })
                 patchDeclarationParents(parent) // TODO: Why it is not enough to just run SetDeclarationsParentVisitor?
             }
@@ -305,7 +305,7 @@ class FunctionInlining(
                 }
             }
 
-            override fun visitLineNumber(element: IrLineNumber, data: Nothing?) = element
+            override fun visitInlineMarker(element: IrInlineMarker, data: Nothing?) = element
 
             fun inlineFunctionExpression(irCall: IrCall, irFunctionExpression: IrFunctionExpression): IrExpression {
                 // Inline the lambda. Lambda parameters will be substituted with lambda arguments.

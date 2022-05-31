@@ -144,8 +144,13 @@ class ExpressionCodegen(
     val smap: SourceMapper,
     val reifiedTypeParametersUsages: ReifiedTypeParametersUsages,
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
-    private val localSmapCopiers: MutableList<SourceMapCopier> = mutableListOf()
-    private val filesStack: MutableList<IrFileEntry> = mutableListOf()
+    private data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker) {
+        fun isInvokeOnLambda(): Boolean {
+            return inlineMarker.inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE
+        }
+    }
+
+    private val localSmapCopiers: MutableList<AdditionalIrInlineData> = mutableListOf()
 
     override fun toString(): String = signature.toString()
 
@@ -203,8 +208,9 @@ class ExpressionCodegen(
         if (offset < 0) return
 
         val lineNumber = if (localSmapCopiers.isNotEmpty()) {
-            val localFileEntry = filesStack.last()
-            localSmapCopiers.last().mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+            val inlineData = localSmapCopiers.last()
+            val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+            inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
         } else {
             getLineNumberForOffset(offset)
         }
@@ -471,8 +477,21 @@ class ExpressionCodegen(
         }
 
         if (localSmapCopiers.size != before) {
-            localSmapCopiers.removeLast()
-            filesStack.removeLast()
+            val inlineData = localSmapCopiers.last()
+            if (inlineData.isInvokeOnLambda()) {
+                localSmapCopiers.removeLast()
+                // TODO the rest
+                inlineData.inlineMarker.callee.markLineNumber(startOffset = false)
+                mv.nop()
+            } else {
+                val calleeBody = inlineData.inlineMarker.callee.body
+                if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
+                    // Allow setting a breakpoint on the closing brace of a void-returning function without an explicit return
+                    inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
+                    mv.nop()
+                }
+                localSmapCopiers.removeLast()
+            }
         }
         return result
     }
@@ -875,47 +894,38 @@ class ExpressionCodegen(
                     element.render()
         )
 
-    override fun visitLineNumber(element: IrLineNumber, data: BlockInfo): PromisedValue {
-        if (element.inlineCall != null) {
-            val inlineCall = element.inlineCall!!
-            val inlineCallOwner = inlineCall.symbol.owner
+    override fun visitInlineMarker(element: IrInlineMarker, data: BlockInfo): PromisedValue {
+        val inlineCall = element.inlineCall
+        val inlineCallOwner = inlineCall.symbol.owner
 
-            inlineCall.markLineNumber(true)
-            mv.nop()
+        inlineCall.markLineNumber(true)
+        mv.nop()
 
-            if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
-                val callSite = null//localSmapCopiers.lastOrNull()?.callSite // TODO take if default call
-                val classMap = SMAP(context.getSourceMapper(element.callee!!.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
-                filesStack += element.calleeFile
-                localSmapCopiers += SourceMapCopier(smap, classMap, callSite)
-            } else {
+        if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
+            val callSite = null//localSmapCopiers.lastOrNull()?.callSite // TODO take if default call
+            val classMap = SMAP(context.getSourceMapper(element.callee.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
+            localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, classMap, callSite), element)
+        } else {
 //                val isDefaultCall = (0 until inlineCall.valueArgumentsCount).any { inlineCall.getValueArgument(it) == null }
-                val nodeAndSmap = element.callee!!.parentClassOrNull!!.declarations
-                    .filterIsInstance<IrSimpleFunction>()
-                    .filter { it.attributeOwnerId == inlineCallOwner.attributeOwnerId }
+            val nodeAndSmap = element.callee.parentClassOrNull!!.declarations
+                .filterIsInstance<IrSimpleFunction>()
+                .filter { it.attributeOwnerId == inlineCallOwner.attributeOwnerId }
 //                    .filter { if (!isDefaultCall) true else it.name.asString().endsWith("\$default") }
-                    .map { actualCallee ->
-                        val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
-                        val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
-                        val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
-                        (callGenerator as InlineCodegen<*>).compileInline()
-                    }.first()
-                val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
-                val file = fileEntry.name.drop(1)
-                val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
-                val path = type?.className?.replace('.', '/')
-                    ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
-                    ?: ""
-                filesStack += element.calleeFile
-                localSmapCopiers += SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path))
-            }
-        } /*else {
-//            localSmapCopiers.last().mapLineNumber(element.lineNumber).let { mv.visitLineNumber(it, markNewLabel()) }
-            if (element.startOffset == -2) {
-                localSmapCopiers.removeLast()
-                filesStack.removeLast()
-            }
-        }*/
+                .map { actualCallee ->
+                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
+                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
+                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
+                    (callGenerator as InlineCodegen<*>).compileInline()
+                }.first()
+
+            val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
+            val file = fileEntry.name.drop(1)
+            val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
+            val path = type?.className?.replace('.', '/')
+                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
+                ?: ""
+            localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path)), element)
+        }
         return unitValue
     }
 

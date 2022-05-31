@@ -409,8 +409,8 @@ open class DeepCopyIrTreeWithSymbols(
     override fun visitSyntheticBody(body: IrSyntheticBody): IrSyntheticBody =
         IrSyntheticBodyImpl(body.startOffset, body.endOffset, body.kind)
 
-    override fun visitLineNumber(element: IrLineNumber, data: Nothing?): IrElement {
-        return IrLineNumber(element.startOffset, element.endOffset, element.type, element.calleeFile, element.lineNumber, element.inlineCall, element.callee)
+    override fun visitInlineMarker(element: IrInlineMarker, data: Nothing?): IrElement {
+        return IrInlineMarker(element.startOffset, element.endOffset, element.type, element.inlineCall, element.callee)
     }
 
     override fun visitExpression(expression: IrExpression): IrExpression =
