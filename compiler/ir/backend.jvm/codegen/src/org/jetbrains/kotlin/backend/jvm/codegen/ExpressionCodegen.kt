@@ -208,9 +208,14 @@ class ExpressionCodegen(
         if (offset < 0) return
 
         val lineNumber = if (localSmapCopiers.isNotEmpty()) {
-            val inlineData = localSmapCopiers.last()
-            val localFileEntry = inlineData.inlineMarker.callee.fileEntry
-            inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+            val doUntil = if (localSmapCopiers.size >= 2 && !localSmapCopiers[0].isInvokeOnLambda() && localSmapCopiers[1].isInvokeOnLambda()) 1 else 0
+            var result = -1
+            for (i in (localSmapCopiers.size - 1) downTo doUntil) {
+                val inlineData = localSmapCopiers[i]
+                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+                result = inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+            }
+            result
         } else {
             getLineNumberForOffset(offset)
         }
@@ -478,19 +483,19 @@ class ExpressionCodegen(
 
         if (localSmapCopiers.size != before) {
             val inlineData = localSmapCopiers.last()
-            if (inlineData.isInvokeOnLambda()) {
-                localSmapCopiers.removeLast()
-                // TODO the rest
-                inlineData.inlineMarker.callee.markLineNumber(startOffset = false)
+            val calleeBody = inlineData.inlineMarker.callee.body
+            if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
+                // Allow setting a breakpoint on the closing brace of a void-returning function without an explicit return
+                val element = inlineData.inlineMarker.callee
+                element.markLineNumber(startOffset = false)
                 mv.nop()
-            } else {
-                val calleeBody = inlineData.inlineMarker.callee.body
-                if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
-                    // Allow setting a breakpoint on the closing brace of a void-returning function without an explicit return
-                    inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
-                    mv.nop()
-                }
-                localSmapCopiers.removeLast()
+            }
+
+            localSmapCopiers.removeLast()
+            if (inlineData.isInvokeOnLambda()) {
+                // TODO the rest
+                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
+                mv.nop()
             }
         }
         return result
