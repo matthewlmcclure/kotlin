@@ -31,7 +31,6 @@ import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.diagnostics.BackendErrors
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedKotlinType
@@ -899,6 +898,55 @@ class ExpressionCodegen(
                     element.render()
         )
 
+    private fun IrFunction.getAnalogWithDefaultParameters(): IrFunction {
+        return this.parentAsClass.declarations.filterIsInstance<IrSimpleFunction>().single {
+            it.attributeOwnerId == this && it.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER
+        }
+    }
+
+    private fun IrFunction.getAllDefaultValueParameters(): List<IrElement> {
+        assert(this.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER)
+        val defaultArgs = mutableListOf<IrElement>()
+        this.body?.accept(object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+            }
+
+            override fun visitBranch(branch: IrBranch) {
+                defaultArgs += branch.result.let { (it as? IrSetValue)?.value ?: it }
+            }
+        }, null)
+        return defaultArgs
+    }
+
+    private fun IrCall.hasDefaultArgs(): Boolean {
+        val owner = this.symbol.owner
+        return (0 until this.valueArgumentsCount).any {
+            this.getValueArgument(it) == null && owner.valueParameters[it].defaultValue != null
+        }
+    }
+
+    private fun IrCall.markDefaultArgsWithCorrespondingLineNumber(defaultArgs: List<IrElement>) {
+        var defaultsIndex = 0
+        val owner = this.symbol.owner
+        (0 until this.valueArgumentsCount).forEach {
+            if (this.getValueArgument(it) == null && owner.valueParameters[it].defaultValue != null) {
+                defaultArgs[defaultsIndex++].markLineNumber(true)
+                mv.nop()
+            }
+        }
+    }
+
+    private fun IrCall.isInvokeOnDefaultArg(expected: IrFunction): Boolean {
+        if (this.symbol.owner.name != OperatorNameConventions.INVOKE) return false
+
+        val dispatch = this.dispatchReceiver as? IrGetValue
+        val parameter = dispatch?.symbol?.owner as? IrValueParameter
+        val default = parameter?.defaultValue?.expression as? IrFunctionExpression
+
+        return default?.function == expected
+    }
+
     override fun visitInlineMarker(element: IrInlineMarker, data: BlockInfo): PromisedValue {
         val inlineCall = element.inlineCall
         val inlineCallOwner = inlineCall.symbol.owner
@@ -907,7 +955,7 @@ class ExpressionCodegen(
         mv.nop()
 
         if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
-            val callSite = null//localSmapCopiers.lastOrNull()?.callSite // TODO take if default call
+            val callSite = if (inlineCall.isInvokeOnDefaultArg(element.callee)) localSmapCopiers.lastOrNull()?.smap?.callSite else null
             val classMap = SMAP(context.getSourceMapper(element.callee.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
             localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, classMap, callSite), element)
         } else {
@@ -931,6 +979,16 @@ class ExpressionCodegen(
                 ?: ""
             localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path)), element)
         }
+
+        if (inlineCall.hasDefaultArgs()) {
+            element.callee.markLineNumber(true) // this line number is useless but it is needed to make proper smap
+            val defaultArgs = element.callee.getAnalogWithDefaultParameters().getAllDefaultValueParameters()
+            inlineCall.markDefaultArgsWithCorrespondingLineNumber(defaultArgs)
+
+            element.callee.markLineNumber(true)
+            mv.nop()
+        }
+
         return unitValue
     }
 
