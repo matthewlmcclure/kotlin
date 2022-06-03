@@ -898,8 +898,14 @@ class ExpressionCodegen(
                     element.render()
         )
 
+    private fun IrFunction.getClassWithDeclaredFunction(): IrClass? {
+        val parent = this.parentClassOrNull ?: return null
+        if (!parent.isInterface) return parent
+        return parent.declarations.singleOrNull { it.origin == JvmLoweredDeclarationOrigin.DEFAULT_IMPLS } as IrClass
+    }
+
     private fun IrFunction.getAnalogWithDefaultParameters(): IrFunction {
-        return this.parentAsClass.declarations.filterIsInstance<IrSimpleFunction>().single {
+        return this.getClassWithDeclaredFunction()!!.declarations.filterIsInstance<IrSimpleFunction>().single {
             it.attributeOwnerId == this && it.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER
         }
     }
@@ -949,27 +955,25 @@ class ExpressionCodegen(
 
     override fun visitInlineMarker(element: IrInlineMarker, data: BlockInfo): PromisedValue {
         val inlineCall = element.inlineCall
-        val inlineCallOwner = inlineCall.symbol.owner
 
         inlineCall.markLineNumber(true)
         mv.nop()
 
-        if (inlineCallOwner.name == OperatorNameConventions.INVOKE) {
+        if (inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE) {
             val callSite = if (inlineCall.isInvokeOnDefaultArg(element.callee)) localSmapCopiers.lastOrNull()?.smap?.callSite else null
             val classMap = SMAP(context.getSourceMapper(element.callee.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
             localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, classMap, callSite), element)
         } else {
-//                val isDefaultCall = (0 until inlineCall.valueArgumentsCount).any { inlineCall.getValueArgument(it) == null }
-            val nodeAndSmap = element.callee.parentClassOrNull!!.declarations
+            val nodeAndSmap = element.callee.getClassWithDeclaredFunction()!!.declarations
                 .filterIsInstance<IrSimpleFunction>()
-                .filter { it.attributeOwnerId == inlineCallOwner.attributeOwnerId }
-//                    .filter { if (!isDefaultCall) true else it.name.asString().endsWith("\$default") }
-                .map { actualCallee ->
+                .filter { it.attributeOwnerId == (element.callee as IrSimpleFunction).attributeOwnerId }
+//                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
+                .first().let { actualCallee ->
                     val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
                     val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
                     val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
                     (callGenerator as InlineCodegen<*>).compileInline()
-                }.first()
+                }
 
             val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
             val file = fileEntry.name.drop(1)
