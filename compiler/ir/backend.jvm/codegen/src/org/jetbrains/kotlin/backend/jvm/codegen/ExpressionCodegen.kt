@@ -961,8 +961,9 @@ class ExpressionCodegen(
 
         if (inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE) {
             val callSite = if (inlineCall.isInvokeOnDefaultArg(element.callee)) localSmapCopiers.lastOrNull()?.smap?.callSite else null
-            val classMap = SMAP(context.getSourceMapper(element.callee.parentClassOrNull!!).resultMappings)//.generateMethodNode(element.callee!!)
-            localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(smap, classMap, callSite), element)
+            val classSourceMapper = context.getSourceMapper(element.callee.parentClassOrNull!!)
+            val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
+            localSmapCopiers += AdditionalIrInlineData(SourceMapCopier(classSourceMapper, classSMAP, callSite), element)
         } else {
             val nodeAndSmap = element.callee.getClassWithDeclaredFunction()!!.declarations
                 .filterIsInstance<IrSimpleFunction>()
