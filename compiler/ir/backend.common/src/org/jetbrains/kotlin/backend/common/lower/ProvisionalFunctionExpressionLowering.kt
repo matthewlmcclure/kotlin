@@ -6,25 +6,22 @@
 package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
-import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.declarations.copyAttributes
-import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrBody
+import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
-import org.jetbrains.kotlin.ir.util.remapTypes
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
 class ProvisionalFunctionExpressionLoweringContext(
-    val outer: ProvisionalFunctionExpressionLoweringContext? = null,
     val startOffset: Int? = null,
-    val endOffset: Int? = null)
+    val endOffset: Int? = null
+)
 class ProvisionalFunctionExpressionLowering :
     IrElementTransformer<ProvisionalFunctionExpressionLoweringContext>,
     BodyLoweringPass {
@@ -36,7 +33,6 @@ class ProvisionalFunctionExpressionLowering :
     override fun visitCall(expression: IrCall, data: ProvisionalFunctionExpressionLoweringContext) = super.visitCall(
         expression,
         ProvisionalFunctionExpressionLoweringContext(
-            data,
             expression.startOffset,
             expression.endOffset
         )
@@ -45,14 +41,13 @@ class ProvisionalFunctionExpressionLowering :
     override fun visitVariable(declaration: IrVariable, data: ProvisionalFunctionExpressionLoweringContext) = super.visitVariable(
         declaration,
         ProvisionalFunctionExpressionLoweringContext(
-            data,
             declaration.startOffset,
             declaration.endOffset
         )
     )
 
     override fun visitFunctionExpression(expression: IrFunctionExpression, data: ProvisionalFunctionExpressionLoweringContext): IrElement {
-        expression.transformChildren(this, ProvisionalFunctionExpressionLoweringContext(data))
+        expression.transformChildren(this, ProvisionalFunctionExpressionLoweringContext())
 
         val startOffset = data.startOffset ?: expression.startOffset
         val endOffset = data.endOffset ?: expression.endOffset
@@ -71,7 +66,7 @@ class ProvisionalFunctionExpressionLowering :
                     valueArgumentsCount = function.valueParameters.size,
                     reflectionTarget = null,
                     origin = origin
-                )//.copyAttributes(expression.attributeOwnerId)
+                ).copyAttributes(expression) // TODO better to copy just name
             )
         )
     }
