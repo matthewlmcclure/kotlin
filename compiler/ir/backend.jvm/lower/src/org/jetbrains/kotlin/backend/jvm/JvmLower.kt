@@ -517,7 +517,7 @@ private fun buildJvmLoweringPhases(
             propertyReferenceInliningPhase then
                 provisionalFunctionExpressionPhase then
 //            inventNamesForLocalClassesPhase2 then
-//            inventNamesForNewLocalClassesPhase then
+            inventNamesForNewLocalClassesPhase then
 //            sharedVariablesPhase then
 
 

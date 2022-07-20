@@ -282,10 +282,20 @@ class FunctionInlining(
                 if (!isLambdaCall(expression))
                     return super.visitCall(expression)
 
-                val dispatchReceiver = expression.dispatchReceiver as IrGetValue
-                val functionArgument = substituteMap[dispatchReceiver.symbol.owner] ?: return super.visitCall(expression)
-                if ((dispatchReceiver.symbol.owner as? IrValueParameter)?.isNoinline == true)
-                    return super.visitCall(expression)
+                // TODO check correctness of this inlining in other backends
+                val functionArgument = if (expression.dispatchReceiver is IrGetValue) {
+                    val dispatchReceiver = expression.dispatchReceiver as IrGetValue
+                    val function = substituteMap[dispatchReceiver.symbol.owner] ?: return super.visitCall(expression)
+                    if ((dispatchReceiver.symbol.owner as? IrValueParameter)?.isNoinline == true) {
+                        return super.visitCall(expression)
+                    }
+                    function
+                } else if (expression.dispatchReceiver is IrFunctionExpression) {
+                    expression.dispatchReceiver!!
+                } else {
+                    TODO()
+                }
+
 
                 return when {
                     functionArgument is IrFunctionReference ->
@@ -447,7 +457,7 @@ class FunctionInlining(
 
             return (dispatchReceiver.type.isFunction() || dispatchReceiver.type.isSuspendFunction())
                     && callee.name == OperatorNameConventions.INVOKE
-                    && irCall.dispatchReceiver is IrGetValue
+                    && (irCall.dispatchReceiver is IrGetValue || irCall.dispatchReceiver is IrFunctionExpression)
         }
 
         private inner class ParameterToArgument(
