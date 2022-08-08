@@ -14,9 +14,11 @@ repositories {
 kotlin {
     val shouldBeJs = true
     val jvm = jvm("jvm6")
-    val js = js("nodeJs") {
-        nodejs()
-    }
+    val js = if (shouldBeJs) {
+        js("nodeJs") {
+            nodejs()
+        }
+    } else null
     linuxX64("linux64")
     if (shouldBeJs)
         wasm()
