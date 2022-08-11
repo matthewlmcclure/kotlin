@@ -357,13 +357,6 @@ private val functionInliningPhase = makeIrModulePhase<JvmBackendContext>(
     )
 )
 
-internal val propertyReferenceInliningPhase = makeIrModulePhase(
-    ::PropertyReferenceInliningLowering,
-    name = "PropertyReferenceInliningPhase",
-    description = "Replace `invoke` call of KProperty by explicit call to getter",
-    prerequisite = setOf(functionInliningPhase)
-)
-
 private val jvmFilePhases = listOf(
     kCallableNamePropertyPhase,
     annotationPhase,
@@ -506,7 +499,6 @@ private fun buildJvmLoweringPhases(
 
                 functionInliningPhase then
                 inventNamesForNewLocalClassesPhase then
-                propertyReferenceInliningPhase then
                 provisionalFunctionExpressionPhase then
 //            inventNamesForLocalClassesPhase2 then
 //            sharedVariablesPhase then
