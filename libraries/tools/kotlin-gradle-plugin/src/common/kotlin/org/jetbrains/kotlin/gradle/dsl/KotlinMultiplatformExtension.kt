@@ -11,9 +11,11 @@ import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.internal.plugins.DslObject
 import org.gradle.api.logging.Logger
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.targetHierarchy.KotlinTargetHierarchyDslImpl
 import javax.inject.Inject
 
 abstract class KotlinMultiplatformExtension(project: Project) :
@@ -52,6 +54,10 @@ abstract class KotlinMultiplatformExtension(project: Project) :
     fun targets(configure: TargetsFromPresetExtension.() -> Unit) {
         configure(presetExtension)
     }
+
+    @Suppress("LeakingThis")
+    @ExperimentalKotlinGradlePluginApi
+    val targetHierarchy: KotlinTargetHierarchyDsl = KotlinTargetHierarchyDslImpl(this)
 
     @Suppress("unused") // DSL
     val testableTargets: NamedDomainObjectCollection<KotlinTargetWithTests<*, *>>
