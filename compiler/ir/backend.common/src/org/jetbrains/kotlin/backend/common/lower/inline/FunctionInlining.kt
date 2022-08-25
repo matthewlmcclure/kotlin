@@ -17,6 +17,8 @@ import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
+import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrInlineMarkerImpl
@@ -30,6 +32,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun IrValueParameter.isInlineParameter(type: IrType = this.type) =
@@ -92,6 +95,14 @@ class FunctionInlining(
     )
 
     private var containerScope: ScopeWithIr? = null
+
+    private val hackFunction = context.irFactory.buildFun {
+        name = Name.identifier("hackFunction")
+        origin = HackFunction()
+        returnType = context.irBuiltIns.unitType
+    }.also {
+        it.addValueParameter("\$anyArg", context.irBuiltIns.anyType)
+    }
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
         // TODO container: IrSymbolDeclaration
@@ -190,30 +201,9 @@ class FunctionInlining(
         val substituteMap = mutableMapOf<IrValueParameter, IrExpression>()
 
         fun inline() = inlineFunction(callSite, callee, true).apply {
-            val mustBeRegenerated = this.collectIrClassesThatMustBeRegenerated(substituteMap)
+            val statementsFromCalleeBody = this.statements.takeLast(callee.body!!.statements.size)
+            val mustBeRegenerated = statementsFromCalleeBody.flatMap { it.collectIrClassesThatMustBeRegenerated(substituteMap) }
             mustBeRegenerated.forEach { it.setUpCorrectAttributeOwnerForInlinedElements() }
-//            this.transformChildrenVoid(object : IrElementTransformerVoid() {
-//                override fun visitClass(declaration: IrClass): IrStatement {
-//                    if (declaration != declaration.attributeOwnerId && declaration.attributeOwnerIdBeforeInline == null) {
-//                        return IrCompositeImpl(declaration.startOffset, declaration.endOffset, context.irBuiltIns.unitType)
-//                    }
-//                    return super.visitClass(declaration)
-//                }
-//
-//                override fun visitFunctionExpression(expression: IrFunctionExpression): IrExpression {
-//                    if (expression != expression.attributeOwnerId && expression.attributeOwnerIdBeforeInline == null) {
-//                        return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
-//                    }
-//                    return super.visitFunctionExpression(expression)
-//                }
-//
-//                override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-//                    if (expression != expression.attributeOwnerId && expression.attributeOwnerIdBeforeInline == null) {
-//                        return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
-//                    }
-//                    return super.visitFunctionReference(expression)
-//                }
-//            })
         }
 
         private fun IrElement.copy(): IrElement {
@@ -280,7 +270,7 @@ class FunctionInlining(
                 newStatements += IrInlineMarkerImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, callSite as IrCall, callee)
             }
             newStatements.addAll(evaluationStatements)
-            statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
+            statements.map { it.dropExcessFun() }.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
 
             return IrReturnableBlockImpl(
                 startOffset = callSite.startOffset,
@@ -308,6 +298,23 @@ class FunctionInlining(
                 })
                 patchDeclarationParents(parent) // TODO: Why it is not enough to just run SetDeclarationsParentVisitor?
             }
+        }
+
+        private fun IrStatement.dropExcessFun(): IrStatement {
+            return this.transform(object : IrElementTransformerVoid() {
+                override fun visitFunction(declaration: IrFunction): IrStatement {
+                    if (declaration.origin is NotInlinedLambda) {
+                        return IrCompositeImpl(declaration.startOffset, declaration.endOffset, context.irBuiltIns.unitType)
+                    }
+                    return super.visitFunction(declaration)
+                }
+//                override fun visitContainerExpression(expression: IrContainerExpression): IrExpression {
+//                    if (expression is IrComposite && expression.origin is NotInlinedLambda) {
+//                        return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
+//                    }
+//                    return super.visitContainerExpression(expression)
+//                }
+            }, null) as IrStatement
         }
 
         //---------------------------------------------------------------------//
@@ -709,6 +716,18 @@ class FunctionInlining(
             val evaluationStatements = mutableListOf<IrStatement>()
             val substitutor = ParameterSubstitutor()
             arguments.forEach { argument ->
+//                val expr = argument.argumentExpression
+//                if (expr is IrFunctionReference || expr is IrFunctionExpression || expr.isAdaptedFunctionReference() || expr is IrPropertyReference) {
+//                    val newVariable =
+//                        currentScope.scope.createTemporaryVariable(
+//                            irExpression = argument.argumentExpression,
+//                            nameHint = argument.parameter.name.toString(),
+//                            isMutable = false,
+//                            irType = argument.parameter.getOriginalParameter().type
+//                        )
+//
+//                    evaluateBeforeInline.add(newVariable) // TODO avoid new var, use block-composite or just function
+//                }
                 /*
                  * We need to create temporary variable for each argument except inlinable lambda arguments.
                  * For simplicity and to produce simpler IR we don't create temporaries for every immutable variable,
@@ -717,6 +736,23 @@ class FunctionInlining(
                 if (argument.isInlinableLambdaArgument || argument.isInlinablePropertyReference) {
                     substituteMap[argument.parameter] = argument.argumentExpression
                     (argument.argumentExpression as? IrCallableReference<*>)?.let { evaluationStatements += evaluateArguments(it) }
+
+                    if (argument.argumentExpression is IrFunctionExpression) {
+//                        val body = argument.argumentExpression.function.body!!
+//                        val composite = IrCompositeImpl(body.startOffset, body.endOffset, context.irBuiltIns.unitType, NotInlinedLambda(), body.statements)
+//                        evaluationStatements.add(composite)
+
+                        val functionCopy = argument.argumentExpression.function.copy() as IrFunction
+                        functionCopy.origin = NotInlinedLambda()
+                        evaluationStatements.add(functionCopy)
+
+//                        val exprCopy = argument.argumentExpression.copy() as IrFunctionExpression
+//                        exprCopy.function.origin = NotInlinedLambda()
+//                        evaluationStatements.add(
+//                            IrCallImpl(-1, -1, context.irBuiltIns.unitType, hackFunction.symbol, 0, 1)
+//                                .also { it.putValueArgument(0, exprCopy) }
+//                        )
+                    }
 
                     return@forEach
                 }
@@ -743,7 +779,7 @@ class FunctionInlining(
                             irExpression = variableInitializer,
                             nameHint = callee.symbol.owner.name.toString(),
                             isMutable = false,
-                            irType = argument.parameter.getOriginalParameter().type
+                            irType = argument.parameter.type // TODO
                         )
 
                     evaluationStatements.add(newVariable)
@@ -794,6 +830,8 @@ class FunctionInlining(
 
 class InlinedArgument : IrStatementOrigin
 class InlinedFunctionReference : IrStatementOrigin
+class NotInlinedLambda : IrDeclarationOrigin
+class HackFunction : IrDeclarationOrigin
 //class InlinedMarker(val inlineCall: IrCall, val callee: IrFunction) : IrStatementOrigin
 
 class InlinerExpressionLocationHint(val inlineAtSymbol: IrSymbol) : IrStatementOrigin {
