@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.backend.jvm
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.checkDeclarationParents
-import org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.inline.*
 import org.jetbrains.kotlin.backend.common.lower.loops.forLoopsPhase
@@ -332,7 +331,7 @@ private val localClassesExtractionFromInlineFunctionsPhase = makeIrModulePhase<J
 )
 
 //private val functionInliningPhase = makeIrFilePhase<JvmBackendContext>(
-private val functionInliningPhase = makeIrModulePhase<JvmBackendContext>(
+internal val functionInliningPhase = makeIrModulePhase<JvmBackendContext>(
     { context ->
         class JvmInlineFunctionResolver : InlineFunctionResolver {
             override fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction {
@@ -381,6 +380,7 @@ private val jvmFilePhases = listOf(
     propertiesPhase,
     remapObjectFieldAccesses,
 
+//    anonymousObjectSuperConstructorPhase,
     jvmBuiltInsPhase,
 
     rangeContainsLoweringPhase,
@@ -396,10 +396,11 @@ private val jvmFilePhases = listOf(
 
     assertionPhase,
     returnableBlocksPhase,
-//    sharedVariablesPhase,
+    sharedVariablesPhase,
     localDeclarationsPhase,
     // makePatchParentsPhase(),
 
+    removeDuplicatedInlinedLocalClasses,
     jvmLocalClassExtractionPhase,
 
     staticCallableReferencePhase,
@@ -489,7 +490,7 @@ private fun buildJvmLoweringPhases(
                 mainMethodGenerationPhase then
 
                 jvmLateinitLowering then
-            sharedVariablesPhase then
+//            sharedVariablesPhase then // TODO maybe enable but put before it arrayConstructorPhase
             inventNamesForLocalClassesPhase then
 
             anonymousObjectSuperConstructorPhase then

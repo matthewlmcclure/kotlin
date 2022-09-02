@@ -16,9 +16,10 @@ import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.ir.*
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
-import org.jetbrains.kotlin.ir.builders.declarations.buildFun
+import org.jetbrains.kotlin.contracts.parsing.ContractsDslNames
+import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrInlineMarkerImpl
@@ -32,7 +33,6 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun IrValueParameter.isInlineParameter(type: IrType = this.type) =
@@ -96,14 +96,6 @@ class FunctionInlining(
 
     private var containerScope: ScopeWithIr? = null
 
-    private val hackFunction = context.irFactory.buildFun {
-        name = Name.identifier("hackFunction")
-        origin = HackFunction()
-        returnType = context.irBuiltIns.unitType
-    }.also {
-        it.addValueParameter("\$anyArg", context.irBuiltIns.anyType)
-    }
-
     override fun lower(irBody: IrBody, container: IrDeclaration) {
         // TODO container: IrSymbolDeclaration
         containerScope = createScope(container as IrSymbolOwner)
@@ -130,7 +122,7 @@ class FunctionInlining(
             return expression
 
         val actualCallee = inlineFunctionResolver.getFunctionDeclaration(callee.symbol)
-        if (actualCallee.body == null) {
+        if (actualCallee.body == null || actualCallee.symbol == context.ir.symbols.singleArgumentInlineFunction) {
             return expression
         }
 
@@ -146,17 +138,16 @@ class FunctionInlining(
     private val IrFunction.needsInlining get() = this.isInline && !this.isExternal
 
     private fun IrAttributeContainer.setUpCorrectAttributeOwnerForInlinedElements() {
-        if (this.attributeOwnerIdBeforeInline != null) return
-        this.attributeOwnerIdBeforeInline = this.attributeOwnerId.let { it.attributeOwnerIdBeforeInline ?: it }
-        this.attributeOwnerId = this
+        fun IrAttributeContainer.setUpCorrectAttributeOwnerForSingleElement() {
+            if (this.attributeOwnerIdBeforeInline != null) return
+            this.attributeOwnerIdBeforeInline = this.attributeOwnerId.let { it.attributeOwnerIdBeforeInline ?: it }
+            this.attributeOwnerId = this
+        }
 
+        setUpCorrectAttributeOwnerForSingleElement()
         this.acceptChildrenVoid(object : IrElementVisitorVoid {
             override fun visitElement(element: IrElement) {
-                if (element is IrAttributeContainer) {
-                    if (element.attributeOwnerIdBeforeInline != null) return
-                    element.attributeOwnerIdBeforeInline = element.attributeOwnerId.let { it.attributeOwnerIdBeforeInline ?: it }
-                    element.attributeOwnerId = element
-                }
+                if (element is IrAttributeContainer) element.setUpCorrectAttributeOwnerForSingleElement()
                 element.acceptChildrenVoid(this)
             }
 
@@ -201,8 +192,8 @@ class FunctionInlining(
         val substituteMap = mutableMapOf<IrValueParameter, IrExpression>()
 
         fun inline() = inlineFunction(callSite, callee, true).apply {
-            val statementsFromCalleeBody = this.statements.takeLast(callee.body!!.statements.size)
-            val mustBeRegenerated = statementsFromCalleeBody.flatMap { it.collectIrClassesThatMustBeRegenerated(substituteMap) }
+            // TODO try to extract to separate lowering
+            val mustBeRegenerated = this.collectIrClassesThatMustBeRegenerated(substituteMap)
             mustBeRegenerated.forEach { it.setUpCorrectAttributeOwnerForInlinedElements() }
         }
 
@@ -270,7 +261,7 @@ class FunctionInlining(
                 newStatements += IrInlineMarkerImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, callSite as IrCall, callee)
             }
             newStatements.addAll(evaluationStatements)
-            statements.map { it.dropExcessFun() }.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
+            statements.map { it.removeDuplicatedCallToHack() }.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }
 
             return IrReturnableBlockImpl(
                 startOffset = callSite.startOffset,
@@ -300,20 +291,14 @@ class FunctionInlining(
             }
         }
 
-        private fun IrStatement.dropExcessFun(): IrStatement {
+        private fun IrStatement.removeDuplicatedCallToHack(): IrStatement {
             return this.transform(object : IrElementTransformerVoid() {
-                override fun visitFunction(declaration: IrFunction): IrStatement {
-                    if (declaration.origin is NotInlinedLambda) {
-                        return IrCompositeImpl(declaration.startOffset, declaration.endOffset, context.irBuiltIns.unitType)
+                override fun visitCall(expression: IrCall): IrExpression {
+                    if (expression.symbol == context.ir.symbols.singleArgumentInlineFunction) {
+                        return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
                     }
-                    return super.visitFunction(declaration)
+                    return super.visitCall(expression)
                 }
-//                override fun visitContainerExpression(expression: IrContainerExpression): IrExpression {
-//                    if (expression is IrComposite && expression.origin is NotInlinedLambda) {
-//                        return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
-//                    }
-//                    return super.visitContainerExpression(expression)
-//                }
             }, null) as IrStatement
         }
 
@@ -338,6 +323,11 @@ class FunctionInlining(
             }
 
             override fun visitCall(expression: IrCall): IrExpression {
+                // TODO extract to common utils OR reuse ContractDSLRemoverLowering
+                if (expression.symbol.owner.hasAnnotation(ContractsDslNames.CONTRACTS_DSL_ANNOTATION_FQN)) {
+                    return IrCompositeImpl(expression.startOffset, expression.endOffset, context.irBuiltIns.unitType)
+                }
+
                 if (!isLambdaCall(expression))
                     return super.visitCall(expression)
 
@@ -554,6 +544,9 @@ class FunctionInlining(
                 get() = argumentExpression.let { argument ->
                     argument is IrGetValue && !argument.symbol.owner.let { it is IrVariable && it.isVar }
                 }
+
+            val isDefault: Boolean
+                get() = parameter.defaultValue?.expression == argumentExpression
         }
 
 
@@ -716,18 +709,6 @@ class FunctionInlining(
             val evaluationStatements = mutableListOf<IrStatement>()
             val substitutor = ParameterSubstitutor()
             arguments.forEach { argument ->
-//                val expr = argument.argumentExpression
-//                if (expr is IrFunctionReference || expr is IrFunctionExpression || expr.isAdaptedFunctionReference() || expr is IrPropertyReference) {
-//                    val newVariable =
-//                        currentScope.scope.createTemporaryVariable(
-//                            irExpression = argument.argumentExpression,
-//                            nameHint = argument.parameter.name.toString(),
-//                            isMutable = false,
-//                            irType = argument.parameter.getOriginalParameter().type
-//                        )
-//
-//                    evaluateBeforeInline.add(newVariable) // TODO avoid new var, use block-composite or just function
-//                }
                 /*
                  * We need to create temporary variable for each argument except inlinable lambda arguments.
                  * For simplicity and to produce simpler IR we don't create temporaries for every immutable variable,
@@ -737,21 +718,11 @@ class FunctionInlining(
                     substituteMap[argument.parameter] = argument.argumentExpression
                     (argument.argumentExpression as? IrCallableReference<*>)?.let { evaluationStatements += evaluateArguments(it) }
 
-                    if (argument.argumentExpression is IrFunctionExpression) {
-//                        val body = argument.argumentExpression.function.body!!
-//                        val composite = IrCompositeImpl(body.startOffset, body.endOffset, context.irBuiltIns.unitType, NotInlinedLambda(), body.statements)
-//                        evaluationStatements.add(composite)
-
-                        val functionCopy = argument.argumentExpression.function.copy() as IrFunction
-                        functionCopy.origin = NotInlinedLambda()
-                        evaluationStatements.add(functionCopy)
-
-//                        val exprCopy = argument.argumentExpression.copy() as IrFunctionExpression
-//                        exprCopy.function.origin = NotInlinedLambda()
-//                        evaluationStatements.add(
-//                            IrCallImpl(-1, -1, context.irBuiltIns.unitType, hackFunction.symbol, 0, 1)
-//                                .also { it.putValueArgument(0, exprCopy) }
-//                        )
+                    if (argument.argumentExpression is IrFunctionExpression && !argument.isDefault) {
+                        evaluationStatements.add(
+                            IrCallImpl.fromSymbolOwner(-1, -1, context.ir.symbols.singleArgumentInlineFunction)
+                                .also { it.putValueArgument(0, argument.argumentExpression.copy() as IrFunctionExpression) }
+                        )
                     }
 
                     return@forEach
@@ -830,9 +801,6 @@ class FunctionInlining(
 
 class InlinedArgument : IrStatementOrigin
 class InlinedFunctionReference : IrStatementOrigin
-class NotInlinedLambda : IrDeclarationOrigin
-class HackFunction : IrDeclarationOrigin
-//class InlinedMarker(val inlineCall: IrCall, val callee: IrFunction) : IrStatementOrigin
 
 class InlinerExpressionLocationHint(val inlineAtSymbol: IrSymbol) : IrStatementOrigin {
     override fun toString(): String =
@@ -847,8 +815,7 @@ class InlinerExpressionLocationHint(val inlineAtSymbol: IrSymbol) : IrStatementO
 
 private fun IrElement.collectIrClassesThatMustBeRegenerated(substituteMap: Map<IrValueParameter, IrExpression>): Set<IrAttributeContainer> {
     val classesToRegenerate = mutableSetOf<IrAttributeContainer>()
-    val inlinedGetValue = substituteMap.values.filterIsInstance<IrGetValue>().map { it.symbol }
-    val inlinedFunctionExpressionFromArgument = substituteMap.values.filterIsInstance<IrFunctionExpression>()
+    val inlinedFunctionExpressionFromArgument = emptyList<IrFunctionExpression>()// substituteMap.values.filterIsInstance<IrFunctionExpression>()
     this.acceptVoid(object : IrElementVisitorVoid {
         private val containersStack = mutableListOf<IrAttributeContainer>()
 
@@ -902,11 +869,6 @@ private fun IrElement.collectIrClassesThatMustBeRegenerated(substituteMap: Map<I
             if (expression.type.getClass()?.let { classesToRegenerate.contains(it) } == true) {
                 saveDeclarationsFromStackIntoRegenerationPool()
             }
-
-            if (inlinedGetValue.contains(expression.symbol)) {
-//                saveDeclarationsFromStackIntoRegenerationPool()
-//                expression.symbol.owner.collectAllLocalClasses().forEach { classesToRegenerate += it }
-            }
         }
 
         override fun visitCall(expression: IrCall) {
@@ -922,40 +884,9 @@ private fun IrElement.collectIrClassesThatMustBeRegenerated(substituteMap: Map<I
                 return
             }
             saveDeclarationsFromStackIntoRegenerationPool()
-//            expression.collectAllLocalClasses().forEach { classesToRegenerate += it }
-            /*expression.collectAllLocalClasses().forEach {
-                if (it.attributeOwnerIdBeforeInline == null) {
-                    it.attributeOwnerId = it
-                }
-            }*/
         }
     })
     return classesToRegenerate
-}
-
-private fun IrElement.collectAllLocalClasses(): Set<IrAttributeContainer> {
-    val classes = mutableSetOf<IrAttributeContainer>()
-    this.accept(object : IrElementVisitorVoid {
-        override fun visitElement(element: IrElement) {
-            element.acceptChildrenVoid(this)
-        }
-
-        override fun visitClass(declaration: IrClass) {
-            classes += declaration
-            return super.visitClass(declaration)
-        }
-
-        override fun visitFunctionExpression(expression: IrFunctionExpression) {
-            classes += expression
-            return super.visitFunctionExpression(expression)
-        }
-
-        override fun visitFunctionReference(expression: IrFunctionReference) {
-            classes += expression
-            return super.visitFunctionReference(expression)
-        }
-    }, null)
-    return classes
 }
 
 private fun IrAttributeContainer.hasReifiedTypeParameters(): Boolean {
