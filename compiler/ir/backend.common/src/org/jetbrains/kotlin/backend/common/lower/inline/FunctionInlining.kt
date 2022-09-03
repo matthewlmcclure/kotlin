@@ -79,7 +79,8 @@ class FunctionInlining(
     val context: CommonBackendContext,
     val inlineFunctionResolver: InlineFunctionResolver,
     val innerClassesSupport: InnerClassesSupport? = null,
-    val insertAdditionalImplicitCasts: Boolean = false
+    val insertAdditionalImplicitCasts: Boolean = false,
+    val inlinePureArguments: Boolean = true,
 ) : IrElementTransformerVoidWithContext(), BodyLoweringPass {
     constructor(context: CommonBackendContext) : this(context, DefaultInlineFunctionResolver(context), null)
     constructor(context: CommonBackendContext, innerClassesSupport: InnerClassesSupport) : this(
@@ -531,14 +532,15 @@ class FunctionInlining(
             val argumentExpression: IrExpression
         ) {
 
+            // TODO check that `getOriginalParameter` don't break other backends
             val isInlinableLambdaArgument: Boolean
-                get() = parameter.isInlineParameter() &&
+                get() = parameter.getOriginalParameter().isInlineParameter() &&
                         (argumentExpression is IrFunctionReference
                                 || argumentExpression is IrFunctionExpression
                                 || argumentExpression.isAdaptedFunctionReference())
 
             val isInlinablePropertyReference: Boolean
-                get() = parameter.isInlineParameter() && argumentExpression is IrPropertyReference
+                get() = parameter.getOriginalParameter().isInlineParameter() && argumentExpression is IrPropertyReference
 
             val isImmutableVariableLoad: Boolean
                 get() = argumentExpression.let { argument ->
@@ -728,33 +730,18 @@ class FunctionInlining(
                     return@forEach
                 }
 
-                if (argument.isImmutableVariableLoad) {
-                    substituteMap[argument.parameter] =
-                        argument.argumentExpression.transform( // Arguments may reference the previous ones - substitute them.
-                            substitutor,
-                            data = null
-                        )
-                    return@forEach
-                }
-
                 // Arguments may reference the previous ones - substitute them.
                 val variableInitializer = argument.argumentExpression.transform(substitutor, data = null)
 
-                val argumentExtracted = !argument.argumentExpression.isPure(false, context = context)
+                if (argument.isImmutableVariableLoad) {
+                    substituteMap[argument.parameter] = variableInitializer
+                    return@forEach
+                }
 
-                if (!argumentExtracted) {
-                    // TODO add new parameter to lowering that will chose between inlining and copying
-//                    substituteMap[argument.parameter] = variableInitializer
-                    val newVariable =
-                        currentScope.scope.createTemporaryVariable(
-                            irExpression = variableInitializer,
-                            nameHint = callee.symbol.owner.name.toString(),
-                            isMutable = false,
-                            irType = argument.parameter.type // TODO
-                        )
+                val argumentIsPure = argument.argumentExpression.isPure(false, context = context)
 
-                    evaluationStatements.add(newVariable)
-                    substituteMap[argument.parameter] = IrGetValueWithoutLocation(newVariable.symbol, InlinedArgument())
+                if (argumentIsPure && inlinePureArguments) {
+                    substituteMap[argument.parameter] = variableInitializer
                 } else {
                     val newVariable =
                         currentScope.scope.createTemporaryVariable(
@@ -799,7 +786,6 @@ class FunctionInlining(
     }
 }
 
-class InlinedArgument : IrStatementOrigin
 class InlinedFunctionReference : IrStatementOrigin
 
 class InlinerExpressionLocationHint(val inlineAtSymbol: IrSymbol) : IrStatementOrigin {
