@@ -6,11 +6,13 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.lower.InventNamesForLocalClasses
-import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.codegen.JvmCodegenUtil
-import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrAttributeContainer
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.org.objectweb.asm.Type
@@ -73,10 +75,11 @@ class JvmInventNamesForNewLocalClasses(context: JvmBackendContext) : JvmInventNa
     private val namesToIndex = mutableMapOf<String, Int>()
     override fun putLocalClassName(declaration: IrAttributeContainer, localClassName: String) {
         if (context.getLocalClassType(declaration) != null) return
-        val index = namesToIndex[localClassName]
-        namesToIndex[localClassName] = (index ?: -1) + 1
+        val inlinedName = localClassName + "\$\$inlined"
+        val index = namesToIndex[inlinedName]
+        namesToIndex[inlinedName] = (index ?: -1) + 1
 
-        val safeName = if (index == null) localClassName else localClassName + index
+        val safeName = if (index == null) inlinedName else inlinedName + index
         context.putLocalClassType(declaration, Type.getObjectType(safeName))
     }
 }

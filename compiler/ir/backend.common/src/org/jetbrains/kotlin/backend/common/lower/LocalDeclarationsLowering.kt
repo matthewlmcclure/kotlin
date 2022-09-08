@@ -8,13 +8,14 @@ package org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
-import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.backend.common.lower.inline.isInlineParameter
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildValueParameter
@@ -25,11 +26,11 @@ import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.transformStatement
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -689,7 +690,7 @@ class LocalDeclarationsLowering(
             newDeclaration.copyAttributes(oldDeclaration)
 
             newDeclaration.valueParameters += createTransformedValueParameters(
-                capturedValues, localFunctionContext, oldDeclaration, newDeclaration,
+                capturedValues.associateWith { it.owner.type }, localFunctionContext, oldDeclaration, newDeclaration,
                 isExplicitLocalFunction = oldDeclaration.origin == IrDeclarationOrigin.LOCAL_FUNCTION
             )
             newDeclaration.recordTransformedValueParameters(localFunctionContext)
@@ -700,14 +701,14 @@ class LocalDeclarationsLowering(
         }
 
         private fun createTransformedValueParameters(
-            capturedValues: List<IrValueSymbol>,
+            capturedValuesWithTypes: Map<IrValueSymbol, IrType>,
             localFunctionContext: LocalContext,
             oldDeclaration: IrFunction,
             newDeclaration: IrFunction,
             isExplicitLocalFunction: Boolean = false
-        ) = ArrayList<IrValueParameter>(capturedValues.size + oldDeclaration.valueParameters.size).apply {
+        ) = ArrayList<IrValueParameter>(capturedValuesWithTypes.size + oldDeclaration.valueParameters.size).apply {
             val generatedNames = mutableSetOf<String>()
-            capturedValues.mapIndexedTo(this) { i, capturedValue ->
+            capturedValuesWithTypes.entries.mapIndexedTo(this) { i, (capturedValue, irType) ->
                 val p = capturedValue.owner
                 buildValueParameter(newDeclaration) {
                     startOffset = p.startOffset
@@ -717,7 +718,7 @@ class LocalDeclarationsLowering(
                         else BOUND_VALUE_PARAMETER
                     name = suggestNameForCapturedValue(p, generatedNames, isExplicitLocalFunction = isExplicitLocalFunction)
                     index = i
-                    type = localFunctionContext.remapType(p.type)
+                    type = localFunctionContext.remapType(irType)
                     isCrossInline = (capturedValue as? IrValueParameterSymbol)?.owner?.isCrossinline == true
                     isNoinline = (capturedValue as? IrValueParameterSymbol)?.owner?.isNoinline == true
                 }.also {
@@ -728,7 +729,7 @@ class LocalDeclarationsLowering(
             oldDeclaration.valueParameters.mapTo(this) { v ->
                 v.copyTo(
                     newDeclaration,
-                    index = v.index + capturedValues.size,
+                    index = v.index + capturedValuesWithTypes.size,
                     type = localFunctionContext.remapType(v.type),
                     varargElementType = v.varargElementType?.let { localFunctionContext.remapType(it) }
                 ).also {
@@ -779,8 +780,9 @@ class LocalDeclarationsLowering(
                 throw AssertionError("Local class constructor can't have extension receiver: ${ir2string(oldDeclaration)}")
             }
 
+            val capturedSymbolToType = localClassContext.declaration.collectActualTypes(capturedValues)
             newDeclaration.valueParameters += createTransformedValueParameters(
-                capturedValues, localClassContext, oldDeclaration, newDeclaration
+                capturedSymbolToType, localClassContext, oldDeclaration, newDeclaration
             )
             newDeclaration.recordTransformedValueParameters(constructorContext)
 
@@ -790,6 +792,37 @@ class LocalDeclarationsLowering(
 
             transformedDeclarations[oldDeclaration] = newDeclaration
             context.mapping.capturedConstructors[oldDeclaration] = newDeclaration
+        }
+
+        // This mapping is required only for anonymous classes (or lowered function expressions) inlined from IR. In case if inlined class
+        // will be dropped, we need to create exact the same constructor as for original one. This can be achieved by collecting all
+        // original types by looking into type of value access expression, because other type information will be erased.
+        private fun IrClass.collectActualTypes(capturedValues: List<IrValueSymbol>): Map<IrValueSymbol, IrType> {
+            val capturedSymbolToType = mutableMapOf<IrValueSymbol, IrType>()
+            this.acceptVoid(object : IrElementVisitorVoid {
+                override fun visitElement(element: IrElement) {
+                    element.acceptChildrenVoid(this)
+                }
+
+                override fun visitCall(expression: IrCall) {
+                    if (expression.symbol.owner.isLocal) {
+                        expression.symbol.owner.acceptVoid(this)
+                    }
+                    super.visitCall(expression)
+                }
+
+                override fun visitValueAccess(expression: IrValueAccessExpression) {
+                    if (expression.symbol in capturedValues && expression.symbol !in capturedSymbolToType) {
+                        capturedSymbolToType[expression.symbol] = (expression.attributeOwnerId as IrValueAccessExpression).type
+                    }
+                    super.visitValueAccess(expression)
+                }
+            })
+
+            if (capturedSymbolToType.size != capturedValues.size) {
+                throw AssertionError("Could not associate all captured variables with corresponding types")
+            }
+            return capturedSymbolToType
         }
 
         private fun createFieldsForCapturedValues(localClassContext: LocalClassContext): List<IrField> {
