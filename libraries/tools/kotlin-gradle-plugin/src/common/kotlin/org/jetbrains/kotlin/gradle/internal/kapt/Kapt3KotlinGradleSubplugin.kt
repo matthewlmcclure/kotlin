@@ -386,6 +386,7 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
 
             kotlinCompilation.compileKotlinTaskProvider.configure {
                 (it as AbstractKotlinCompileTool<*>).setSource(sourcesOutputDir, kotlinSourcesOutputDir)
+                it.libraries.from(classesOutputDir)
             }
         }
         taskConfigAction.configureTask { task ->
