@@ -32,9 +32,6 @@ class WasmSymbols(
     context: WasmBackendContext,
     private val symbolTable: SymbolTable
 ) : Symbols<WasmBackendContext>(context, context.irBuiltIns, symbolTable) {
-    override val singleArgumentInlineFunction: IrSimpleFunctionSymbol
-        get() = TODO("Not yet implemented")
-
     private val kotlinTopLevelPackage: PackageViewDescriptor =
         context.module.getPackage(FqName("kotlin"))
     private val wasmInternalPackage: PackageViewDescriptor =
