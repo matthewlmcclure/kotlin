@@ -62,16 +62,21 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 
     @MppGradlePluginTests
     @DisplayName("works with MPP publishing")
+    @GradleTestVersions(maxVersion = TestVersions.Gradle.G_7_4)
     @GradleTest
     fun testMppWithMavenPublish(gradleVersion: GradleVersion) {
         project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
-            // KT-49933: Support Gradle Configuration caching with HMPP
-            val publishedTargets = listOf(/*"kotlinMultiplatform",*/ "jvm6", "nodeJs", "linux64", "mingw64", "mingw86")
+            val gradleAtLeast_7_4 = gradleVersion >= GradleVersion.version(TestVersions.Gradle.G_7_4)
+            val publishedTargets = listOfNotNull(
+                "kotlinMultiplatform".takeIf { gradleAtLeast_7_4 },
+                "jvm6", "nodeJs", "linux64", "mingw64", "mingw86"
+            )
 
             testConfigurationCacheOf(
                 ":buildKotlinToolingMetadata", // Remove it when KT-49933 is fixed and `kotlinMultiplatform` publication works
                 *(publishedTargets.map { ":publish${it.replaceFirstChar { it.uppercaseChar() }}PublicationToMavenRepository" }.toTypedArray()),
-                checkUpToDateOnRebuild = false
+                checkUpToDateOnRebuild = false,
+                checkConfigurationCacheFileReport = false
             )
         }
     }
@@ -88,14 +93,13 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
             )
             // These tasks currently don't support Configuration Cache and marked as [Task::notCompatibleWithConfigurationCache]
             val configCacheIncompatibleTaskTypes = listOf(
-                "CInteropMetadataDependencyTransformationTask",
-                "MetadataDependencyTransformationTask"
+                "CInteropMetadataDependencyTransformationTask"
             )
 
             build("build", buildOptions = buildOptions) {
                 // Reduce the problem numbers when a Task become compatible with GCC.
                 // When all tasks support GCC, replace these assertions with `testConfigurationCacheOf`
-                assertOutputContains("4 problems were found storing the configuration cache, 2 of which seem unique.")
+                assertOutputContains("1 problem was found storing the configuration cache.")
                 configCacheIncompatibleTaskTypes.forEach { taskType ->
                     assertOutputContains(
                         """Task `\S+` of type `[\w.]+$taskType`: .+(at execution time is unsupported)|(not supported with the configuration cache)"""
@@ -123,16 +127,12 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
             build(
                 ":lib:commonizeCInterop",
                 ":commonizeNativeDistribution",
-                buildOptions = buildOptions
-            ) {
-                // Reduce the problem numbers when a Task become compatible with GCC.
-                // When all tasks support GCC, replace these assertions with `testConfigurationCacheOf`
-                assertOutputContains("1 problem was found storing the configuration cache.")
-                assertOutputContains(
-                    """Task `\S+` of type `[\w.]+CInteropMetadataDependencyTransformationTask`: .+(at execution time is unsupported)|(not supported with the configuration cache)"""
-                        .toRegex()
-                )
-            }
+                buildOptions = buildOptions,
+                // TODO(alakotka): Report will be still generated due to incorrect consumption of properties and environmental variables.
+                //  https://docs.gradle.org/7.4.2/userguide/configuration_cache.html#config_cache:requirements:reading_sys_props_and_env_vars
+                checkConfigurationCacheFileReport = false,
+                checkUpToDateOnRebuild = false
+            )
         }
     }
 
