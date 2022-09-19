@@ -23,7 +23,10 @@ import org.jetbrains.kotlin.PlatformInfo
 import org.jetbrains.kotlin.KotlinBuildPusher
 import org.jetbrains.kotlin.CollisionDetector
 import org.jetbrains.kotlin.CollisionTransformer
+import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
+import org.jetbrains.kotlin.konan.target.TargetAttribute
+import org.jetbrains.kotlin.konan.target.TargetAttributeKt
 import org.jetbrains.kotlin.CompareDistributionSignatures
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
@@ -412,6 +415,21 @@ def endorsedLibsCopyTask = task("crossDistEndorsedLibrariesCopy", type: Copy) {
 }
 
 targetList.each { target ->
+    configurations {
+        bitcodeConfiguration {
+            canBeConsumed = false
+            canBeResolved = true
+            attributes {
+                attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CompileToBitcodeExtension.USAGE))
+                attribute(TargetAttribute.Companion.TARGET_ATTRIBUTE, TargetAttributeKt.targetAttribute(project, target))
+            }
+        }
+    }
+
+    dependencies {
+        bitcodeConfiguration(project(":kotlin-native:runtime"))
+    }
+
     task("${target}CrossDistStdlib", type: Copy) {
         dependsOn ":kotlin-native:runtime:${target}Stdlib"
         // TODO: add explicit dependency on host task with IR klib stdlib parts
@@ -449,11 +467,9 @@ targetList.each { target ->
     }
 
     task("${target}CrossDistBitcodeCopy", type: Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
-
         destinationDir project.file("$distDir/konan/targets/")
 
-        from(project(':kotlin-native:runtime').file("build/bitcode/main/$target")) {
+        from(configurations.bitcodeConfiguration) {
             include("*.bc")
             exclude("runtime.bc")
             into("$target/native")
@@ -461,7 +477,6 @@ targetList.each { target ->
     }
 
     task("${target}CrossDistRuntime", type: Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
         dependsOn ":kotlin-native:${target}CrossDistStdlib"
         dependsOn "${target}CrossDistBitcodeCopy"
 
@@ -746,13 +761,8 @@ task pusher(type: KotlinBuildPusher){
 
 compilationDatabase {
     allTargets {
-        mergeFrom(provider { project("common") })
-        mergeFrom(provider { project("runtime") })
-
-        // TODO: Reconsider this
-        task.configure {
-            dependsOn(":kotlin-native:runtime:downloadGoogleTest")
-        }
+        mergeFrom(project("common"))
+        mergeFrom(project("runtime"))
     }
 }
 

@@ -8,19 +8,13 @@ package org.jetbrains.kotlin.cpp
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.attributes.Usage
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
-import org.gradle.kotlin.dsl.create
-import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.newInstance
-import org.gradle.kotlin.dsl.register
-import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.target.SanitizerKind
-import org.jetbrains.kotlin.konan.target.TargetDomainObjectContainer
-import org.jetbrains.kotlin.konan.target.targetSuffix
+import org.gradle.kotlin.dsl.*
+import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.utils.Maybe
 import org.jetbrains.kotlin.utils.asMaybe
 import javax.inject.Inject
@@ -48,7 +42,20 @@ import javax.inject.Inject
 abstract class CompilationDatabaseExtension @Inject constructor(private val project: Project) : TargetDomainObjectContainer<CompilationDatabaseExtension.Target>(project) {
     init {
         this.factory = { target, sanitizer ->
-            project.objects.newInstance<Target>(project, target, sanitizer.asMaybe)
+            project.objects.newInstance<Target>(this, target, sanitizer.asMaybe)
+        }
+
+        project.dependencies.attributesSchema {
+            attribute(TargetAttribute.TARGET_ATTRIBUTE)
+        }
+    }
+
+    private val outgoingConfiguration = project.configurations.create(CONFIGURATION_NAME) {
+        description = "Producer of Compilation Database"
+        isCanBeConsumed = true
+        isCanBeResolved = false
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, USAGE))
         }
     }
 
@@ -108,23 +115,35 @@ abstract class CompilationDatabaseExtension @Inject constructor(private val proj
      * @property sanitizer optional sanitizer for which compilation database is generated.
      */
     abstract class Target @Inject constructor(
-            private val project: Project,
+            private val owner: CompilationDatabaseExtension,
             val target: KonanTarget,
             _sanitizer: Maybe<SanitizerKind>,
     ) {
         val sanitizer = _sanitizer.orNull
 
-        protected abstract val mergeFrom: ListProperty<GenerateCompilationDatabase>
+        private val project by owner::project
+
+        private val incomingConfiguration = project.configurations.create("${CONFIGURATION_NAME}-${target}${sanitizer.targetSuffix}") {
+            description = "Consumer of Compilation Database for ${target}${sanitizer.targetSuffix}"
+            isCanBeConsumed = false
+            isCanBeResolved = true
+            attributes {
+                attribute(TargetAttribute.TARGET_ATTRIBUTE, project.objects.targetAttribute(target, sanitizer))
+                attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, USAGE))
+            }
+        }
 
         /**
-         * Merge compilation database generated for [from] project for [target] with optional [sanitizer].
+         * Merge compilation database generated for [dependencyNotation] for [target] with optional [sanitizer].
          *
-         * @param from project with applied [CompilationDatabasePlugin] to merge compilation database from.
+         * @param dependencyNotation dependency that contains compilation database. Uses syntax as described in [DependencyHandler][org.gradle.api.artifacts.dsl.DependencyHandler].
          */
-        fun mergeFrom(from: Provider<Project>) {
-            mergeFrom.add(from.flatMap { project ->
-                project.extensions.getByType<CompilationDatabaseExtension>().target(target, sanitizer).task
-            })
+        fun mergeFrom(dependencyNotation: Any) {
+            project.dependencies {
+                incomingConfiguration(dependencyNotation)!!.apply {
+                    because("compilatonDatabase was instructed to mergeFrom this dependency")
+                }
+            }
         }
 
         protected abstract val entries: ListProperty<GenerateCompilationDatabase.Entry>
@@ -154,15 +173,34 @@ abstract class CompilationDatabaseExtension @Inject constructor(private val proj
         val task = project.tasks.register<GenerateCompilationDatabase>("${target}${sanitizer.targetSuffix}CompilationDatabase") {
             description = "Generate compilation database for $target${sanitizer.targetSuffix}"
             group = TASK_GROUP
-            mergeFiles.from(mergeFrom)
+            mergeFiles.from(incomingConfiguration)
             entries.set(this@Target.entries)
             outputFile.set(project.layout.buildDirectory.file("${target}${sanitizer.targetSuffix}/compile_commands.json"))
+        }
+
+        init {
+            owner.outgoingConfiguration.outgoing {
+                variants {
+                    create("${target}${sanitizer.targetSuffix}") {
+                        attributes {
+                            attribute(TargetAttribute.TARGET_ATTRIBUTE, project.objects.targetAttribute(target, sanitizer))
+                        }
+                        artifact(task)
+                    }
+                }
+            }
         }
     }
 
     companion object {
         @JvmStatic
         val TASK_GROUP = "development support"
+
+        @JvmStatic
+        val USAGE = "compilationDatabase"
+
+        @JvmStatic
+        val CONFIGURATION_NAME = "compilationDatabase"
     }
 }
 

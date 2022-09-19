@@ -9,6 +9,7 @@ import kotlinBuildProperties
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.attributes.Usage
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService
@@ -20,10 +21,7 @@ import org.jetbrains.kotlin.cpp.CompilationDatabaseExtension
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
 import org.jetbrains.kotlin.cpp.CompileToExecutable
 import org.jetbrains.kotlin.cpp.RunGTest
-import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.target.PlatformManager
-import org.jetbrains.kotlin.konan.target.SanitizerKind
-import org.jetbrains.kotlin.konan.target.TargetDomainObjectContainer
+import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.testing.native.GoogleTestExtension
 import org.jetbrains.kotlin.utils.Maybe
 import org.jetbrains.kotlin.utils.asMaybe
@@ -83,6 +81,20 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
         }
     }
 
+    init {
+        project.dependencies.attributesSchema {
+            attribute(TargetAttribute.TARGET_ATTRIBUTE)
+        }
+    }
+
+    private val outgoingConfiguration = project.configurations.create(CONFIGURATION_NAME) {
+        isCanBeConsumed = true
+        isCanBeResolved = false
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, USAGE))
+        }
+    }
+
     // TODO: These should be set by the plugin users.
     private val DEFAULT_CPP_FLAGS = listOfNotNull(
             "-gdwarf-2".takeIf { project.kotlinBuildProperties.getBoolean("kotlin.native.isNativeRuntimeDebugInfoEnabled", false) },
@@ -139,6 +151,12 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
 
         private val project by owner::project
 
+        private val configurationVariant = owner.outgoingConfiguration.outgoing.variants.create("${target}${sanitizer.targetSuffix}") {
+            attributes {
+                attribute(TargetAttribute.TARGET_ATTRIBUTE, project.objects.targetAttribute(target, sanitizer))
+            }
+        }
+
         private val compilationDatabase = project.extensions.getByType<CompilationDatabaseExtension>()
         private val execClang = project.extensions.getByType<ExecClang>()
         private val platformManager = project.extensions.getByType<PlatformManager>()
@@ -166,6 +184,10 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
                     arguments.set(args)
                     // Only the location of output file matters, compdb does not depend on the compilation result.
                     output.set(compileTask.outputFile.locationOnly.map { it.asFile.absolutePath })
+                }
+                // TODO: Probably module should know dependencies on its own.
+                task.configure {
+                    dependsOn(compileTask.dependsOn)
                 }
             }
         }
@@ -195,6 +217,9 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
             }
             addToCompdb(task)
             if (outputGroup == "main" && sanitizer == null) {
+                configurationVariant.artifact(task.outputFile) {
+                    this.name = name
+                }
                 allMainModulesTask.configure {
                     dependsOn(taskName)
                 }
@@ -287,11 +312,16 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
                 dependsOn(runTask)
             }
         }
+
     }
 
     companion object {
         const val BUILD_TASK_GROUP = LifecycleBasePlugin.BUILD_GROUP
         const val VERIFICATION_TASK_GROUP = LifecycleBasePlugin.VERIFICATION_GROUP
         const val VERIFICATION_BUILD_TASK_GROUP = "verification build"
+
+        @JvmStatic
+        val USAGE = "bitcode"
+        const val CONFIGURATION_NAME = "bitcode"
     }
 }
