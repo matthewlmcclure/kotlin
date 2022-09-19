@@ -19,7 +19,16 @@ task("downloadIDL", JavaExec::class) {
 }
 
 task("generateStdlibFromIDL", JavaExec::class) {
-    main = "org.jetbrains.kotlin.tools.dukat.LaunchKt"
+    main = "org.jetbrains.kotlin.tools.dukat.LaunchJsKt"
+    classpath = sourceSets["main"].runtimeClasspath
+    dependsOn(":dukat:build")
+    systemProperty("line.separator", "\n")
+}
+
+// Configured version of Dukat creates incorrect declarations for kotlin/wasm, pathed version located in yakovlev/dynamicAsType
+// After patched version be published we need to update dukat version in dependencies here.
+task("generateWasmStdlibFromIDL", JavaExec::class) {
+    main = "org.jetbrains.kotlin.tools.dukat.LaunchWasmKt"
     classpath = sourceSets["main"].runtimeClasspath
     dependsOn(":dukat:build")
     systemProperty("line.separator", "\n")
