@@ -71,6 +71,7 @@ class VariableFixationFinder(
             TypeVariableFixationReadiness.READY_FOR_FIXATION_DECLARED_UPPER_BOUND_WITH_SELF_TYPES
         !variableHasProperArgumentConstraints(variable) -> TypeVariableFixationReadiness.WITHOUT_PROPER_ARGUMENT_CONSTRAINT
         hasDependencyToOtherTypeVariables(variable) -> TypeVariableFixationReadiness.WITH_COMPLEX_DEPENDENCY
+        hasDependencyToSelfCapturedType(variable) -> TypeVariableFixationReadiness.WITH_COMPLEX_DEPENDENCY
         variableHasTrivialOrNonProperConstraints(variable) -> TypeVariableFixationReadiness.WITH_TRIVIAL_OR_NON_PROPER_CONSTRAINTS
         dependencyProvider.isVariableRelatedToAnyOutputType(variable) -> TypeVariableFixationReadiness.RELATED_TO_ANY_OUTPUT_TYPE
         variableHasOnlyIncorporatedConstraintsFromDeclaredUpperBound(variable) ->
@@ -145,6 +146,18 @@ class VariableFixationFinder(
             }
             if (constraint.type.lowerBoundIfFlexible().argumentsCount() != 0 && constraint.type.contains(dependencyPresenceCondition))
                 return true
+        }
+        return false
+    }
+
+    private fun Context.hasDependencyToSelfCapturedType(typeVariable: TypeConstructorMarker): Boolean {
+        for (constraint in notFixedTypeVariables[typeVariable]?.constraints ?: return false) {
+            if (constraint.type.contains { type ->
+                    type is CapturedTypeMarker && type.lowerType()?.typeConstructor() == typeVariable
+                }
+            ) {
+                return true
+            }
         }
         return false
     }
