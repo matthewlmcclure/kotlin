@@ -181,6 +181,7 @@ dependencies {
 
 apply plugin: CompilationDatabasePlugin
 apply plugin: 'maven-publish'
+apply plugin: BasePlugin
 
 //task sharedJar {
 //    dependsOn gradle.includedBuild('shared').task(':jar')
@@ -198,7 +199,8 @@ task dist_compiler(dependsOn: "distCompiler")
 task dist_runtime(dependsOn: "distRuntime")
 task cross_dist(dependsOn: "crossDist")
 task list_dist(dependsOn: "listDist")
-tasks.register("build") {
+
+tasks.named("build") {
     dependsOn 'dist', 'distPlatformLibs'
 }
 
@@ -828,7 +830,7 @@ KotlinBuildPublishingPluginKt.configureDefaultPublishing(
         /* signingRequired = */ KotlinBuildPublishingPluginKt.getSignLibraryPublication(project)
 )
 
-tasks.register("clean", Delete) {
+tasks.named("clean", Delete) {
     dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
     doFirst {
         delete distDir
