@@ -23,9 +23,9 @@ fun <C> context(p: Processor<in C>, exec: Exec<C>) {}
 fun <M> materialize(): Processor<M> = TODO()
 
 private fun foo(model: Model) {
-    materialize().apply {
+    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>materialize<!>().<!DEBUG_INFO_MISSING_UNRESOLVED!>apply<!> {
         context(
-            this,
+            <!NO_THIS!>this<!>,
             Exec { m, p -> p.process(m) } // Note: Builder inference
         )
     }

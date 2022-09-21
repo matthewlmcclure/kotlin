@@ -475,6 +475,7 @@ class ConstraintInjector(
             type: KotlinTypeMarker,
             constraintContext: ConstraintContext
         ) {
+            if (typeVariable.freshTypeConstructor() !in c.notFixedTypeVariables) return
             val (kind, derivedFrom, inputTypePosition, isNullabilityConstraint) = constraintContext
 
             var targetType = type
