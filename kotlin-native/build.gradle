@@ -727,16 +727,6 @@ task teamcityCompilerVersion {
     }
 }
 
-task clean(type: Delete) {
-    dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
-    doFirst {
-        delete distDir
-        delete buildDir
-        delete bundle.outputs.files
-        delete "${projectDir}/compile_commands.json"
-    }
-}
-
 task pusher(type: KotlinBuildPusher){
     kotlinVersion = project.kotlinVersion
     konanVersion = project.ext.kotlinNativeVersion
@@ -837,6 +827,16 @@ KotlinBuildPublishingPluginKt.configureDefaultPublishing(
         /* receiver = */        project,
         /* signingRequired = */ KotlinBuildPublishingPluginKt.getSignLibraryPublication(project)
 )
+
+tasks.register("clean", Delete) {
+    dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
+    doFirst {
+        delete distDir
+        delete buildDir
+        delete bundle.outputs.files
+        delete "${projectDir}/compile_commands.json"
+    }
+}
 
 publishing {
     publications {
