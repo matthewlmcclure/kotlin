@@ -122,6 +122,7 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     }
 
     override fun CapturedTypeMarker.lowerType(): KotlinTypeMarker? {
+        if (this is CapturedType) return null
         require(this is NewCapturedType, this::errorMessage)
         return this.lowerType
     }
