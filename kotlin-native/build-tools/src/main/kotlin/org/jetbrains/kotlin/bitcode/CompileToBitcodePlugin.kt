@@ -25,12 +25,9 @@ import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.testing.native.GoogleTestExtension
 import org.jetbrains.kotlin.utils.Maybe
 import org.jetbrains.kotlin.utils.asMaybe
+import org.jetbrains.kotlin.utils.capitalized
 import java.io.File
 import javax.inject.Inject
-
-@OptIn(ExperimentalStdlibApi::class)
-private val String.capitalized: String
-    get() = replaceFirstChar { it.uppercase() }
 
 private fun String.snakeCaseToUpperCamelCase() = split('_').joinToString(separator = "") { it.capitalized }
 

@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.KotlinBuildPusher
 import org.jetbrains.kotlin.CollisionDetector
 import org.jetbrains.kotlin.CollisionTransformer
 import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
+import org.jetbrains.kotlin.cpp.CompilationDatabaseExtension
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
 import org.jetbrains.kotlin.konan.target.TargetAttribute
 import org.jetbrains.kotlin.konan.target.TargetAttributeKt
@@ -164,6 +165,8 @@ configurations {
     commonSources
 }
 
+apply plugin: CompilationDatabasePlugin
+
 dependencies {
     ftpAntTask 'org.apache.ant:ant-commons-net:1.9.9'
     distPack project(':kotlin-native:Interop:Runtime')
@@ -179,9 +182,9 @@ dependencies {
     commonSources project(path: ':kotlin-stdlib-common', configuration: 'sources')
     commonSources project(path: ':kotlin-test:kotlin-test-common', configuration: 'sources')
     commonSources project(path: ':kotlin-test:kotlin-test-annotations-common', configuration: 'sources')
+    compilationDatabase project(":kotlin-native:common")
+    compilationDatabase project(":kotlin-native:runtime")
 }
-
-apply plugin: CompilationDatabasePlugin
 
 //task sharedJar {
 //    dependsOn gradle.includedBuild('shared').task(':jar')
@@ -758,10 +761,7 @@ task pusher(type: KotlinBuildPusher){
 }
 
 compilationDatabase {
-    allTargets {
-        mergeFrom(project("common"))
-        mergeFrom(project("runtime"))
-    }
+    allTargets {}
 }
 
 tasks.register("compdb", Copy) {
