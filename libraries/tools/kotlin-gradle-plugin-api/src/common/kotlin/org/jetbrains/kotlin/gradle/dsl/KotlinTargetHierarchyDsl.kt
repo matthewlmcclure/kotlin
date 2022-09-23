@@ -24,7 +24,7 @@ interface KotlinTargetHierarchyDsl {
      *
      * ```kotlin
      * kotlin {
-     *     targetHierarchy.default() // <- position of this call is not relevant!
+     *     targets.hierarchy.default() // <- position of this call is not relevant!
      *
      *     iosX64()
      *     iosArm64()
@@ -66,7 +66,7 @@ interface KotlinTargetHierarchyDsl {
      *
      * ```kotlin
      * kotlin {
-     *     hierarchy.default { target ->
+     *     targets.hierarchy.default { target ->
      *         if(target.isNative) {
      *             group("native") { // <- we can re-declare already existing groups and connect children to it!
      *                 if(target.isLinux || target.isApple) {

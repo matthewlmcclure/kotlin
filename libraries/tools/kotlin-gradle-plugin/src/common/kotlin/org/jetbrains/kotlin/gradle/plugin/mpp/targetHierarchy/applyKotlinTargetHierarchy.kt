@@ -6,33 +6,35 @@
 package org.jetbrains.kotlin.gradle.plugin.mpp.targetHierarchy
 
 import org.gradle.api.DomainObjectCollection
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.gradle.api.NamedDomainObjectContainer
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 
-internal fun KotlinMultiplatformExtension.applyKotlinTargetHierarchy(
+internal fun applyKotlinTargetHierarchy(
     hierarchyDescriptor: KotlinTargetHierarchyDescriptor,
-    targets: DomainObjectCollection<KotlinTarget>
+    targets: DomainObjectCollection<KotlinTarget>,
+    sourceSets: NamedDomainObjectContainer<KotlinSourceSet>
 ) {
     targets
         .matching { target -> target.platformType != KotlinPlatformType.common }
         .all { target ->
             target.compilations.all { compilation ->
                 hierarchyDescriptor.buildKotlinTargetHierarchies(compilation).forEach { hierarchy ->
-                    applyKotlinTargetHierarchy(hierarchy, compilation)
+                    applyKotlinTargetHierarchy(hierarchy, compilation, sourceSets)
                 }
             }
         }
 }
 
-private fun KotlinMultiplatformExtension.applyKotlinTargetHierarchy(
+private fun applyKotlinTargetHierarchy(
     hierarchy: KotlinTargetHierarchy,
-    compilation: KotlinCompilation<*>
+    compilation: KotlinCompilation<*>,
+    sourceSets: NamedDomainObjectContainer<KotlinSourceSet>
 ): KotlinSourceSet {
     val sharedSourceSet = sourceSets.maybeCreate(lowerCamelCaseName(hierarchy.group, compilation.name))
 
     hierarchy.children
-        .map { childHierarchy -> applyKotlinTargetHierarchy(childHierarchy, compilation) }
+        .map { childHierarchy -> applyKotlinTargetHierarchy(childHierarchy, compilation, sourceSets) }
         .forEach { childSourceSet -> childSourceSet.dependsOn(sharedSourceSet) }
 
     if (hierarchy.children.isEmpty()) {

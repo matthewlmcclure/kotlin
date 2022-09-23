@@ -55,9 +55,9 @@ abstract class KotlinMultiplatformExtension(project: Project) :
         configure(presetExtension)
     }
 
-    @Suppress("LeakingThis")
     @ExperimentalKotlinGradlePluginApi
-    val targetHierarchy: KotlinTargetHierarchyDsl = KotlinTargetHierarchyDslImpl(this)
+    val NamedDomainObjectCollection<KotlinTarget>.hierarchy: KotlinTargetHierarchyDsl
+        get() = KotlinTargetHierarchyDslImpl(this, sourceSets)
 
     @Suppress("unused") // DSL
     val testableTargets: NamedDomainObjectCollection<KotlinTargetWithTests<*, *>>
@@ -186,12 +186,14 @@ internal fun <T : KotlinTarget> KotlinTargetsContainerWithPresets.configureOrCre
             configure(existingTarget as T)
             return existingTarget
         }
+
         existingTarget == null -> {
             val newTarget = targetPreset.createTarget(targetName)
             targets.add(newTarget)
             configure(newTarget)
             return newTarget
         }
+
         else -> {
             throw InvalidUserCodeException(
                 "The target '$targetName' already exists, but it was not created with the '${targetPreset.name}' preset. " +

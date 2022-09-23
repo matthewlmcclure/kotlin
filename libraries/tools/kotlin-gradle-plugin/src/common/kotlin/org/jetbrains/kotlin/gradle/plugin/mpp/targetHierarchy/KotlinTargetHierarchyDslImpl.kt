@@ -5,24 +5,30 @@
 
 package org.jetbrains.kotlin.gradle.plugin.mpp.targetHierarchy
 
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectContainer
 import org.jetbrains.kotlin.gradle.dsl.KotlinTargetHierarchyDsl
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinTargetHierarchyBuilder
 import org.jetbrains.kotlin.gradle.plugin.KotlinTargetHierarchyDescriptor
 
-internal class KotlinTargetHierarchyDslImpl(private val kotlin: KotlinMultiplatformExtension) : KotlinTargetHierarchyDsl {
+internal class KotlinTargetHierarchyDslImpl(
+    private val targets: DomainObjectCollection<KotlinTarget>,
+    private val sourceSets: NamedDomainObjectContainer<KotlinSourceSet>
+) : KotlinTargetHierarchyDsl {
     override fun apply(
         hierarchyDescriptor: KotlinTargetHierarchyDescriptor,
         describeExtension: (KotlinTargetHierarchyBuilder.() -> Unit)?
     ) {
-        kotlin.applyKotlinTargetHierarchy(hierarchyDescriptor.extendIfNotNull(describeExtension), kotlin.targets)
+        applyKotlinTargetHierarchy(hierarchyDescriptor.extendIfNotNull(describeExtension), targets, sourceSets)
     }
 
     override fun default(describeExtension: (KotlinTargetHierarchyBuilder.() -> Unit)?) {
-        kotlin.applyKotlinTargetHierarchy(naturalKotlinTargetHierarchy.extendIfNotNull(describeExtension), kotlin.targets)
+        applyKotlinTargetHierarchy(naturalKotlinTargetHierarchy.extendIfNotNull(describeExtension), targets, sourceSets)
     }
 
     override fun custom(describe: KotlinTargetHierarchyBuilder.() -> Unit) {
-        kotlin.applyKotlinTargetHierarchy(KotlinTargetHierarchyDescriptor(describe), kotlin.targets)
+        applyKotlinTargetHierarchy(KotlinTargetHierarchyDescriptor(describe), targets, sourceSets)
     }
 }
