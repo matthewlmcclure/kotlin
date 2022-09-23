@@ -560,7 +560,8 @@ task bundle {
 
 task bundleRegular(type: (isWindows()) ? Zip : Tar) {
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-$simpleOsName")
+    archiveVersion.set(konanVersionFull.toString())
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
@@ -576,7 +577,8 @@ task bundleRegular(type: (isWindows()) ? Zip : Tar) {
 task bundlePrebuilt(type: (isWindows()) ? Zip : Tar) {
     dependsOn("crossDistPlatformLibs")
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-prebuilt-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-prebuilt-$simpleOsName")
+    archiveVersion.set(konanVersionFull.toString())
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
@@ -627,7 +629,8 @@ task 'tc-dist'(type: (isWindows()) ? Zip : Tar) {
     dependsOn('dist')
     dependsOn('distSources')
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-dist-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-dist-$simpleOsName")
+    archiveVersion.set(konanVersionFull.toString())
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
