@@ -351,7 +351,7 @@ targetList.forEach { targetName ->
     }
 
     dependencies {
-        bitcodeConfiguration(project(":kotlin-native:runtime"))
+        bitcodeConfiguration(project(mapOf("path" to ":kotlin-native:runtime", "configuration" to CompileToBitcodeExtension.CONFIGURATION_NAME)))
     }
 
     tasks.register("${targetName}Stdlib", Copy::class.java) {

@@ -415,19 +415,17 @@ def endorsedLibsCopyTask = task("crossDistEndorsedLibrariesCopy", type: Copy) {
 }
 
 targetList.each { target ->
-    configurations {
-        bitcodeConfiguration {
-            canBeConsumed = false
-            canBeResolved = true
-            attributes {
-                attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CompileToBitcodeExtension.USAGE))
-                attribute(TargetAttribute.Companion.TARGET_ATTRIBUTE, TargetAttributeKt.targetAttribute(project, target))
-            }
+    def bitcodeConfiguration = configurations.create("bitcode-$target") {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CompileToBitcodeExtension.USAGE))
+            attribute(TargetAttribute.Companion.TARGET_ATTRIBUTE, TargetAttributeKt.targetAttribute(project, target))
         }
     }
 
     dependencies {
-        bitcodeConfiguration(project(":kotlin-native:runtime"))
+        add(bitcodeConfiguration.name, project(":kotlin-native:runtime"))
     }
 
     task("${target}CrossDistStdlib", type: Copy) {
@@ -469,7 +467,7 @@ targetList.each { target ->
     task("${target}CrossDistBitcodeCopy", type: Copy) {
         destinationDir project.file("$distDir/konan/targets/")
 
-        from(configurations.bitcodeConfiguration) {
+        from(bitcodeConfiguration) {
             include("*.bc")
             exclude("runtime.bc")
             into("$target/native")
