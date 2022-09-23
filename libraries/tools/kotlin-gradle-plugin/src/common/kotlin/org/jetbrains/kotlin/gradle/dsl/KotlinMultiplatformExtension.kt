@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.dsl
 
-import org.gradle.api.Action
-import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectCollection
-import org.gradle.api.Project
+import org.gradle.api.*
 import org.gradle.api.internal.plugins.DslObject
 import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -58,6 +55,13 @@ abstract class KotlinMultiplatformExtension(project: Project) :
     @ExperimentalKotlinGradlePluginApi
     val NamedDomainObjectCollection<KotlinTarget>.hierarchy: KotlinTargetHierarchyDsl
         get() = KotlinTargetHierarchyDslImpl(this, sourceSets)
+
+    @ExperimentalKotlinGradlePluginApi
+    fun targetHierarchy(targets: NamedDomainObjectCollection<KotlinTarget>): KotlinTargetHierarchyDsl =
+        KotlinTargetHierarchyDslImpl(targets, sourceSets)
+
+    @ExperimentalKotlinGradlePluginApi
+    val targetHierarchy: KotlinTargetHierarchyDsl get() = targetHierarchy(targets)
 
     @Suppress("unused") // DSL
     val testableTargets: NamedDomainObjectCollection<KotlinTargetWithTests<*, *>>

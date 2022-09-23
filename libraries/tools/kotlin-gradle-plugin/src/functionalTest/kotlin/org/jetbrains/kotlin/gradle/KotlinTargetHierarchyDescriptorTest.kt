@@ -144,4 +144,9 @@ class KotlinTargetHierarchyDescriptorTest {
             }
         }
     }
+
+    @Test
+    fun `test - cycle`() {
+
+    }
 }
