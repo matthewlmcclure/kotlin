@@ -84,9 +84,21 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
         }
     }
 
-    private val outgoingConfiguration = project.configurations.create(CONFIGURATION_NAME) {
+    private val outgoingConfiguration = project.configurations.create("assembleBitcode") {
+        description = "Bitcode files"
         isCanBeConsumed = true
         isCanBeResolved = false
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, USAGE))
+        }
+    }
+
+    /**
+     * Configuration to attach dependencies to.
+     */
+    val configuration = project.configurations.create(CONFIGURATION_NAME) {
+        isCanBeConsumed = false
+        isCanBeResolved = true
         attributes {
             attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, USAGE))
         }
@@ -319,6 +331,8 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
 
         @JvmStatic
         val USAGE = "bitcode"
-        const val CONFIGURATION_NAME = "bitcode"
+
+        @JvmStatic
+        val CONFIGURATION_NAME = "implementationBitcode"
     }
 }

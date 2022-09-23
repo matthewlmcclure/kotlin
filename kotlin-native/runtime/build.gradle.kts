@@ -341,17 +341,10 @@ konanArtifacts {
 }
 
 targetList.forEach { targetName ->
-    val bitcodeConfiguration = configurations.create("bitcode-$targetName") {
-        isCanBeConsumed = false
-        isCanBeResolved = true
+    val bitcodeConfiguration = bitcode.configuration.incoming.artifactView {
         attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, CompileToBitcodeExtension.USAGE))
             attribute(TargetAttribute.TARGET_ATTRIBUTE, targetAttribute(project, targetName))
         }
-    }
-
-    dependencies {
-        bitcodeConfiguration(project(mapOf("path" to ":kotlin-native:runtime", "configuration" to CompileToBitcodeExtension.CONFIGURATION_NAME)))
     }
 
     tasks.register("${targetName}Stdlib", Copy::class.java) {
@@ -361,7 +354,7 @@ targetList.forEach { targetName ->
         destinationDir = project.buildDir.resolve("${targetName}Stdlib")
 
         from(project.buildDir.resolve("stdlib/${hostName}/stdlib"))
-        from(bitcodeConfiguration) {
+        from(bitcodeConfiguration.files) {
             include("runtime.bc", "compiler_interface.bc")
             into("default/targets/$targetName/native")
         }

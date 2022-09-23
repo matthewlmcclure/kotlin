@@ -23,8 +23,7 @@ import org.jetbrains.kotlin.PlatformInfo
 import org.jetbrains.kotlin.KotlinBuildPusher
 import org.jetbrains.kotlin.CollisionDetector
 import org.jetbrains.kotlin.CollisionTransformer
-import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
-import org.jetbrains.kotlin.cpp.CompilationDatabaseExtension
+import org.jetbrains.kotlin.bitcode.CompileToBitcodePlugin
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
 import org.jetbrains.kotlin.konan.target.TargetAttribute
 import org.jetbrains.kotlin.konan.target.TargetAttributeKt
@@ -166,6 +165,7 @@ configurations {
 }
 
 apply plugin: CompilationDatabasePlugin
+apply plugin: CompileToBitcodePlugin
 
 dependencies {
     ftpAntTask 'org.apache.ant:ant-commons-net:1.9.9'
@@ -184,6 +184,7 @@ dependencies {
     commonSources project(path: ':kotlin-test:kotlin-test-annotations-common', configuration: 'sources')
     compilationDatabase project(":kotlin-native:common")
     compilationDatabase project(":kotlin-native:runtime")
+    implementationBitcode project(":kotlin-native:runtime")
 }
 
 //task sharedJar {
@@ -418,17 +419,10 @@ def endorsedLibsCopyTask = task("crossDistEndorsedLibrariesCopy", type: Copy) {
 }
 
 targetList.each { target ->
-    def bitcodeConfiguration = configurations.create("bitcode-$target") {
-        canBeConsumed = false
-        canBeResolved = true
+    def bitcodeConfiguration = configurations.implementationBitcode.incoming.artifactView {
         attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CompileToBitcodeExtension.USAGE))
             attribute(TargetAttribute.Companion.TARGET_ATTRIBUTE, TargetAttributeKt.targetAttribute(project, target))
         }
-    }
-
-    dependencies {
-        add(bitcodeConfiguration.name, project(":kotlin-native:runtime"))
     }
 
     task("${target}CrossDistStdlib", type: Copy) {
@@ -470,7 +464,7 @@ targetList.each { target ->
     task("${target}CrossDistBitcodeCopy", type: Copy) {
         destinationDir project.file("$distDir/konan/targets/")
 
-        from(bitcodeConfiguration) {
+        from(bitcodeConfiguration.files) {
             include("*.bc")
             exclude("runtime.bc")
             into("$target/native")
