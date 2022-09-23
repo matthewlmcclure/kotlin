@@ -24,6 +24,7 @@ interface KotlinTargetHierarchyBuilder {
     val isJvm: Boolean
     val isAndroidJvm: Boolean
     val isJsLegacy: Boolean
+    val isJsIr: Boolean
     val isJs: Boolean
 
     fun common(build: KotlinTargetHierarchyBuilder.() -> Unit) = group("common", build)

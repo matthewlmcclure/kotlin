@@ -64,5 +64,6 @@ private class KotlinTargetHierarchyBuilderImpl(
     override val isJvm: Boolean get() = target is KotlinJvmTarget
     override val isAndroidJvm: Boolean get() = target is KotlinAndroidTarget
     override val isJsLegacy: Boolean get() = target is KotlinJsTarget
-    override val isJs: Boolean get() = target is KotlinJsIrTarget
+    override val isJsIr: Boolean get() = target is KotlinJsIrTarget
+    override val isJs: Boolean get() = isJsIr || isJsLegacy
 }
