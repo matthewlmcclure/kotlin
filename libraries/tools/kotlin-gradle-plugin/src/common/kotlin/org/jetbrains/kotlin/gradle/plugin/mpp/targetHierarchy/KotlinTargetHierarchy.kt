@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.gradle.plugin.mpp.targetHierarchy
 
 internal data class KotlinTargetHierarchy(
     val group: String,
-    val children: Set<KotlinTargetHierarchy>
+    val children: Set<KotlinTargetHierarchy> = emptySet()
 ) {
     override fun toString(): String {
         if (children.isEmpty()) return group
