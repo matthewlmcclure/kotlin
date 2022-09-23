@@ -24,7 +24,7 @@ class KotlinTargetHierarchyDslTest {
     @Test
     fun `test - hierarchy default - targets from all families`() {
         kotlin.apply {
-            targets.hierarchy.default()
+            targetHierarchy.default()
             iosArm32()
             iosArm64()
             iosX64()
@@ -158,7 +158,7 @@ class KotlinTargetHierarchyDslTest {
     @Test
     fun `test - hierarchy default - only linuxX64`() {
         kotlin.apply {
-            targets.hierarchy.default()
+            targetHierarchy.default()
             kotlin.linuxX64()
         }
 
@@ -182,7 +182,7 @@ class KotlinTargetHierarchyDslTest {
         val descriptor = KotlinTargetHierarchyDescriptor { group("common") { group("base") } }
 
         kotlin.apply {
-            targets.hierarchy.apply(descriptor) { group("base") { group("extension") } }
+            targetHierarchy.apply(descriptor) { group("base") { group("extension") } }
             linuxX64()
         }
 
@@ -213,7 +213,7 @@ class KotlinTargetHierarchyDslTest {
         }
 
         kotlin.apply {
-            targets.hierarchy.apply(descriptor) {
+            targetHierarchy.apply(descriptor) {
                 group("newRoot") {
                     group("base") { group("extension") }
                 }
