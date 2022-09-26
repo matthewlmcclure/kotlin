@@ -223,9 +223,10 @@ private fun printType(type: KmType, flags: Flags = type.flags): String {
     val abbreviatedType = type.abbreviatedType?.let(::printType)
     val outerType = type.outerType?.let(::printType)
     val platformTypeUpperBound = type.flexibleTypeUpperBound?.let {
-        (if (it.typeFlexibilityId == JvmTypeExtensionVisitor.PLATFORM_TYPE_ID) {
+        @Suppress("DEPRECATION")
+        if (it.typeFlexibilityId == JvmTypeExtensionVisitor.PLATFORM_TYPE_ID) {
             printType(it.type, it.type.flags)
-        } else null)
+        } else null
     }
     val jvmIsRaw = type.isRaw
     val jvmAnnotations: MutableList<KmAnnotation> = type.annotations
