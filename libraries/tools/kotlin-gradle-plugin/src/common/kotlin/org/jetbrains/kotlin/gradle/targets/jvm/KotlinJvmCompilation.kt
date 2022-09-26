@@ -6,12 +6,13 @@
 @file:Suppress("PackageDirectoryMismatch") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.dsl.CompilerJvmOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
+import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
 import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactory
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
@@ -22,7 +23,7 @@ abstract class KotlinJvmCompilation @Inject constructor(
     compilationDetails: CompilationDetailsWithRuntime<KotlinJvmOptions>,
 ) : AbstractKotlinCompilationToRunnableFiles<KotlinJvmOptions>(compilationDetails),
     KotlinCompilationWithResources<KotlinJvmOptions> {
-    override val target: KotlinJvmTarget get() = compilationDetails.target as KotlinJvmTarget
+    override val target: KotlinTarget get() = compilationDetails.target
 
     @Suppress("UNCHECKED_CAST")
     override val compilerOptions: HasCompilerOptions<CompilerJvmOptions>
@@ -46,7 +47,7 @@ abstract class KotlinJvmCompilation @Inject constructor(
         get() = super.compileTaskProvider as TaskProvider<KotlinCompilationTask<CompilerJvmOptions>>
 
     val compileJavaTaskProvider: TaskProvider<out JavaCompile>?
-        get() = if (target.withJavaEnabled) {
+        get() = if ((target as? KotlinJvmTarget)?.withJavaEnabled == true) {
             val project = target.project
             val javaSourceSets = project.gradle.variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
                 .getInstance(project)

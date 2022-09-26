@@ -90,62 +90,8 @@ abstract class AbstractKotlinTarget(
 
     override val components: Set<SoftwareComponent> by lazy {
         if (!project.hasKpmModel) {
-            buildAdhocComponentsFromKotlinVariants(kotlinComponents)
+            project.buildAdhocComponentsFromKotlinVariants(kotlinComponents)
         } else emptySet()
-    }
-
-    private fun buildAdhocComponentsFromKotlinVariants(kotlinVariants: Set<KotlinTargetComponent>): Set<SoftwareComponent> {
-        val softwareComponentFactoryClass = SoftwareComponentFactory::class.java
-        // TODO replace internal API access with injection (not possible until we have this class on the compile classpath)
-        val softwareComponentFactory = (project as ProjectInternal).services.get(softwareComponentFactoryClass)
-
-        return kotlinVariants.map { kotlinVariant ->
-            val adhocVariant = softwareComponentFactory.adhoc(kotlinVariant.name)
-
-            project.whenEvaluated {
-                (kotlinVariant as SoftwareComponentInternal).usages.filterIsInstance<KotlinUsageContext>().forEach { kotlinUsageContext ->
-                    val publishedConfigurationName = publishedConfigurationName(kotlinUsageContext.name)
-                    val configuration = project.configurations.findByName(publishedConfigurationName)
-                        ?: project.configurations.create(publishedConfigurationName).also { configuration ->
-                            configuration.isCanBeConsumed = false
-                            configuration.isCanBeResolved = false
-                            configuration.extendsFrom(project.configurations.getByName(kotlinUsageContext.dependencyConfigurationName))
-                            configuration.artifacts.addAll(kotlinUsageContext.artifacts)
-
-                            val attributes = kotlinUsageContext.attributes
-                            attributes.keySet().forEach {
-                                // capture type parameter T
-                                fun <T> copyAttribute(key: Attribute<T>, from: AttributeContainer, to: AttributeContainer) {
-                                    to.attribute(key, from.getAttribute(key)!!)
-                                }
-                                copyAttribute(it, attributes, configuration.attributes)
-                            }
-                        }
-
-                    adhocVariant.addVariantsFromConfiguration(configuration) { configurationVariantDetails ->
-                        val mavenScope = when (kotlinUsageContext.usage.name) {
-                            "java-api-jars" -> "compile"
-                            "java-runtime-jars" -> "runtime"
-                            else -> error("unexpected usage value '${kotlinUsageContext.usage.name}'")
-                        }
-                        configurationVariantDetails.mapToMavenScope(mavenScope)
-                    }
-                }
-            }
-
-            adhocVariant as SoftwareComponent
-
-            object : ComponentWithVariants, ComponentWithCoordinates, SoftwareComponentInternal {
-                override fun getCoordinates() =
-                    (kotlinVariant as? ComponentWithCoordinates)?.coordinates ?: error("kotlinVariant is not ComponentWithCoordinates")
-
-                override fun getVariants(): Set<SoftwareComponent> =
-                    (kotlinVariant as? KotlinVariantWithMetadataVariant)?.variants.orEmpty()
-
-                override fun getName(): String = adhocVariant.name
-                override fun getUsages(): MutableSet<out UsageContext> = (adhocVariant as SoftwareComponentInternal).usages
-            }
-        }.toSet()
     }
 
     protected open fun createKotlinVariant(
@@ -284,3 +230,56 @@ internal fun KotlinTarget.disambiguateName(simpleName: String) =
 
 internal fun javaApiUsageForMavenScoping() = "java-api-jars"
 
+internal fun Project.buildAdhocComponentsFromKotlinVariants(kotlinVariants: Set<KotlinTargetComponent>): Set<SoftwareComponent> {
+    val softwareComponentFactoryClass = SoftwareComponentFactory::class.java
+    // TODO replace internal API access with injection (not possible until we have this class on the compile classpath)
+    val softwareComponentFactory = (this as ProjectInternal).services.get(softwareComponentFactoryClass)
+
+    return kotlinVariants.map { kotlinVariant ->
+        val adhocVariant = softwareComponentFactory.adhoc(kotlinVariant.name)
+
+        this.whenEvaluated {
+            (kotlinVariant as SoftwareComponentInternal).usages.filterIsInstance<KotlinUsageContext>().forEach { kotlinUsageContext ->
+                val publishedConfigurationName = publishedConfigurationName(kotlinUsageContext.name)
+                val configuration = project.configurations.findByName(publishedConfigurationName)
+                    ?: project.configurations.create(publishedConfigurationName).also { configuration ->
+                        configuration.isCanBeConsumed = false
+                        configuration.isCanBeResolved = false
+                        configuration.extendsFrom(project.configurations.getByName(kotlinUsageContext.dependencyConfigurationName))
+                        configuration.artifacts.addAll(kotlinUsageContext.artifacts)
+
+                        val attributes = kotlinUsageContext.attributes
+                        attributes.keySet().forEach {
+                            // capture type parameter T
+                            fun <T> copyAttribute(key: Attribute<T>, from: AttributeContainer, to: AttributeContainer) {
+                                to.attribute(key, from.getAttribute(key)!!)
+                            }
+                            copyAttribute(it, attributes, configuration.attributes)
+                        }
+                    }
+
+                adhocVariant.addVariantsFromConfiguration(configuration) { configurationVariantDetails ->
+                    val mavenScope = when (kotlinUsageContext.usage.name) {
+                        "java-api-jars" -> "compile"
+                        "java-runtime-jars" -> "runtime"
+                        else -> error("unexpected usage value '${kotlinUsageContext.usage.name}'")
+                    }
+                    configurationVariantDetails.mapToMavenScope(mavenScope)
+                }
+            }
+        }
+
+        adhocVariant as SoftwareComponent
+
+        object : ComponentWithVariants, ComponentWithCoordinates, SoftwareComponentInternal {
+            override fun getCoordinates() =
+                (kotlinVariant as? ComponentWithCoordinates)?.coordinates ?: error("kotlinVariant is not ComponentWithCoordinates")
+
+            override fun getVariants(): Set<SoftwareComponent> =
+                (kotlinVariant as? KotlinVariantWithMetadataVariant)?.variants.orEmpty()
+
+            override fun getName(): String = adhocVariant.name
+            override fun getUsages(): MutableSet<out UsageContext> = (adhocVariant as SoftwareComponentInternal).usages
+        }
+    }.toSet()
+}

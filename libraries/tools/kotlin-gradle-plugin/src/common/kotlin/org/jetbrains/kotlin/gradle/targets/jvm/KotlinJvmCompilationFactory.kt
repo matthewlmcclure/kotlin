@@ -10,10 +10,10 @@ import org.jetbrains.kotlin.gradle.dsl.CompilerJvmOptions
 import org.jetbrains.kotlin.gradle.dsl.CompilerJvmOptionsDefault
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
-import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 
 open class KotlinJvmCompilationFactory(
-    override val target: KotlinJvmTarget
+    override val target: KotlinTarget
 ) : KotlinCompilationFactory<KotlinJvmCompilation> {
     override val itemClass: Class<KotlinJvmCompilation>
         get() = KotlinJvmCompilation::class.java
