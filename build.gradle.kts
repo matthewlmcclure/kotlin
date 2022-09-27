@@ -500,8 +500,6 @@ allprojects {
             }
         }
 
-        maven("https://download.jetbrains.com/teamcity-repository/")
-
         @Suppress("DEPRECATION")
         jcenter {
             content {
