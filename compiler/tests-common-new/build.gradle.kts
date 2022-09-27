@@ -56,7 +56,12 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(jUnitMode = JUnitMode.JUnit5) {
+projectTest(
+    jUnitMode = JUnitMode.JUnit5,
+    defineJDKEnvVariables = listOf(
+        JdkMajorVersion.JDK_11_0 // e.g. org.jetbrains.kotlin.test.runners.ForeignAnnotationsCompiledJavaTestGenerated.Java11Tests
+    )
+) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
