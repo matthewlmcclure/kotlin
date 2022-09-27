@@ -78,4 +78,10 @@ public class SerializationIrBoxTestGenerated extends AbstractSerializationIrBoxT
     public void testSealedInterfaces() throws Exception {
         runTest("plugins/kotlinx-serialization/testData/boxIr/sealedInterfaces.kt");
     }
+
+    @Test
+    @TestMetadata("serializableOnPropertyType.kt")
+    public void testSerializableOnPropertyType() throws Exception {
+        runTest("plugins/kotlinx-serialization/testData/boxIr/serializableOnPropertyType.kt");
+    }
 }
