@@ -173,10 +173,7 @@ class LocalClassesInInlineFunctionsLowering(val context: CommonBackendContext) :
     }
 }
 
-class LocalClassesExtractionFromInlineFunctionsLowering(
-    context: CommonBackendContext,
-    recordExtractedLocalClasses: BackendContext.(IrClass) -> Unit = {},
-) : LocalClassPopupLowering(context, recordExtractedLocalClasses) {
+class LocalClassesExtractionFromInlineFunctionsLowering(context: CommonBackendContext) : LocalClassPopupLowering(context) {
     private val classesToExtract = mutableSetOf<IrClass>()
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {

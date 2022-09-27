@@ -14,11 +14,8 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.ir.util.setDeclarationsParent
 
-//This lower takes part of old LocalDeclarationLowering job to pop up local classes from functions
-open class LocalClassPopupLowering(
-    val context: BackendContext,
-    val recordExtractedLocalClasses: BackendContext.(IrClass) -> Unit = {},
-) : BodyLoweringPass {
+// This lower takes part of old LocalDeclarationLowering job to pop up local classes from functions
+open class LocalClassPopupLowering(val context: BackendContext) : BodyLoweringPass {
     override fun lower(irFile: IrFile) {
         runOnFilePostfix(irFile, withLocalDeclarations = true)
     }
@@ -54,7 +51,7 @@ open class LocalClassPopupLowering(
                         extractedLocalClasses.add(ExtractedLocalClass(declaration, newContainer, extractedUnder))
                     }
                     is IrDeclarationContainer -> extractedLocalClasses.add(ExtractedLocalClass(declaration, newContainer, extractedUnder))
-                    else -> error("Inexpected container type $newContainer")
+                    else -> error("Unexpected container type $newContainer")
                 }
 
                 return IrCompositeImpl(declaration.startOffset, declaration.endOffset, context.irBuiltIns.unitType)
@@ -77,7 +74,6 @@ open class LocalClassPopupLowering(
                 }
                 else -> error("Inexpected container type $newContainer")
             }
-            context.recordExtractedLocalClasses(local)
         }
     }
 
