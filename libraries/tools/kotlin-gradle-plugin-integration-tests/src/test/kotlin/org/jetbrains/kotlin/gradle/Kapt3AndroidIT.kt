@@ -11,9 +11,9 @@ import org.junit.Ignore
 import org.junit.Test
 import java.io.File
 
-open class Kapt3Android36IT : Kapt3AndroidIT() {
+open class Kapt3Android41IT : Kapt3AndroidIT() {
     override val androidGradlePluginVersion: AGPVersion
-        get() = AGPVersion.v3_6_0
+        get() = AGPVersion.v4_1_0
 
     // AGP 3.+ is not working with Gradle 7+
     override val defaultGradleVersion: GradleVersionRequired
