@@ -40278,6 +40278,18 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
                 public void testAllFilesPresentInRepeatable() throws Exception {
                     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/reflection/annotations/repeatable"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM, true);
                 }
+
+                @Test
+                @TestMetadata("kt53279_explicitContainer.kt")
+                public void testKt53279_explicitContainer() throws Exception {
+                    runTest("compiler/testData/codegen/box/reflection/annotations/repeatable/kt53279_explicitContainer.kt");
+                }
+
+                @Test
+                @TestMetadata("kt53279_implicitContainer.kt")
+                public void testKt53279_implicitContainer() throws Exception {
+                    runTest("compiler/testData/codegen/box/reflection/annotations/repeatable/kt53279_implicitContainer.kt");
+                }
             }
         }
 
