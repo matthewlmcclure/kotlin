@@ -77,7 +77,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
             "-opt-in=kotlin.ExperimentalUnsignedTypes",
             "-Xskip-prerelease-check"
         )
-        allWarningsAsErrors = true
+        allWarningsAsErrors = !project.kotlinBuildProperties.useFir
     }
 }
 

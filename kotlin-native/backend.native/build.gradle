@@ -33,7 +33,7 @@ sourceSets {
 
 compileCompilerKotlin {
     kotlinOptions.jvmTarget = "1.8"
-    kotlinOptions.allWarningsAsErrors=true
+    kotlinOptions.allWarningsAsErrors=!useJvmFir
     kotlinOptions.freeCompilerArgs += ['-opt-in=kotlin.RequiresOptIn', '-opt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI', '-Xskip-prerelease-check']
 }
 
