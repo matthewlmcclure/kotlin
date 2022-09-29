@@ -3238,6 +3238,12 @@ public class FirDiagnosticTestGenerated extends AbstractFirDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("javaDefaultMethod.kt")
+            public void testJavaDefaultMethod() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/overrides/javaDefaultMethod.kt");
+            }
+
+            @Test
             @TestMetadata("protobufExt.kt")
             public void testProtobufExt() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/overrides/protobufExt.kt");

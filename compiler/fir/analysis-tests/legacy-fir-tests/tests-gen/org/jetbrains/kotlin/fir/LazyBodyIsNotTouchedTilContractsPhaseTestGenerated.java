@@ -2854,6 +2854,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
             runTest("compiler/fir/analysis-tests/testData/resolve/overrides/generics.kt");
         }
 
+        @TestMetadata("javaDefaultMethod.kt")
+        public void testJavaDefaultMethod() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/overrides/javaDefaultMethod.kt");
+        }
+
         @TestMetadata("protobufExt.kt")
         public void testProtobufExt() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/overrides/protobufExt.kt");

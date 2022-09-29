@@ -1,0 +1,60 @@
+FILE: impl.kt
+    public final class Impl1 : R|Interface| {
+        public constructor(): R|Impl1| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Impl2 : R|Interface| {
+        public constructor(): R|Impl2| {
+            super<R|kotlin/Any|>()
+        }
+
+        local final field <$$delegate_0>: R|Interface| = R|/Impl1.Impl1|()
+
+    }
+    public final class Impl3 : R|Interface| {
+        public constructor(): R|Impl3| {
+            super<R|kotlin/Any|>()
+        }
+
+        local final field <$$delegate_0>: R|Interface| = R|/Impl1.Impl1|()
+
+        public final override fun foo(): R|kotlin/Unit| {
+        }
+
+    }
+    public final class Impl4 : R|Interface| {
+        public constructor(): R|Impl4| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final override fun foo(): R|kotlin/Unit| {
+        }
+
+    }
+    public final class Impl5 : R|Interface| {
+        public constructor(): R|Impl5| {
+            super<R|kotlin/Any|>()
+        }
+
+        local final field <$$delegate_0>: R|Interface| = R|/Impl4.Impl4|()
+
+    }
+    public final class Impl6 : R|InterfaceWithoutDefaultMethods| {
+        public constructor(): R|Impl6| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final override fun bar(): R|kotlin/Unit| {
+        }
+
+    }
+    public final class Impl7 : R|InterfaceWithoutDefaultMethods| {
+        public constructor(): R|Impl7| {
+            super<R|kotlin/Any|>()
+        }
+
+        local final field <$$delegate_0>: R|InterfaceWithoutDefaultMethods| = R|/Impl6.Impl6|()
+
+    }

@@ -5,11 +5,10 @@
 
 package org.jetbrains.kotlin.fir.backend.generators
 
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.modality
+import org.jetbrains.kotlin.fir.isDefaultJavaMethod
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.delegatedWrapperData
@@ -339,22 +338,10 @@ class DelegatedMemberGenerator(
 
         private fun shouldSkipDelegationFor(unwrapped: FirCallableDeclaration): Boolean {
             // See org.jetbrains.kotlin.resolve.jvm.JvmDelegationFilter
-            return (unwrapped is FirSimpleFunction && unwrapped.isDefaultJavaMethod()) ||
+            return (unwrapped is FirSimpleFunction && unwrapped.isDefaultJavaMethod) ||
                     unwrapped.hasAnnotation(JVM_DEFAULT_CLASS_ID) ||
                     unwrapped.hasAnnotation(PLATFORM_DEPENDENT_CLASS_ID)
         }
-
-        private fun FirSimpleFunction.isDefaultJavaMethod(): Boolean =
-            when {
-                isIntersectionOverride ->
-                    baseForIntersectionOverride!!.isDefaultJavaMethod()
-                isSubstitutionOverride ->
-                    originalForSubstitutionOverride!!.isDefaultJavaMethod()
-                else -> {
-                    // Check that we have a non-abstract method from Java interface
-                    origin == FirDeclarationOrigin.Enhancement && modality == Modality.OPEN
-                }
-            }
     }
 }
 

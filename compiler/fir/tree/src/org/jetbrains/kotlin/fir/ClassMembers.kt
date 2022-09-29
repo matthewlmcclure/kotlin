@@ -5,8 +5,10 @@
 
 package org.jetbrains.kotlin.fir
 
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -44,9 +46,25 @@ val FirCallableDeclaration.isIntersectionOverride: Boolean get() = origin == Fir
 val FirCallableDeclaration.isSubstitutionOverride: Boolean get() = origin == FirDeclarationOrigin.SubstitutionOverride
 val FirCallableDeclaration.isSubstitutionOrIntersectionOverride: Boolean get() = isSubstitutionOverride || isIntersectionOverride
 
+val FirCallableDeclaration.isDefaultJavaMethod: Boolean get() = symbol.isDefaultJavaMethod
+
 val FirCallableSymbol<*>.isIntersectionOverride: Boolean get() = origin == FirDeclarationOrigin.IntersectionOverride
 val FirCallableSymbol<*>.isSubstitutionOverride: Boolean get() = origin == FirDeclarationOrigin.SubstitutionOverride
 val FirCallableSymbol<*>.isSubstitutionOrIntersectionOverride: Boolean get() = isSubstitutionOverride || isIntersectionOverride
+
+val FirCallableSymbol<*>.isDefaultJavaMethod: Boolean
+    get() = when {
+        isIntersectionOverride ->
+            baseForIntersectionOverride!!.isDefaultJavaMethod
+
+        isSubstitutionOverride ->
+            originalForSubstitutionOverride!!.isDefaultJavaMethod
+
+        else -> {
+            // Check that we have a non-abstract method from Java interface
+            origin == FirDeclarationOrigin.Enhancement && modality == Modality.OPEN
+        }
+    }
 
 inline val <reified D : FirCallableDeclaration> D.originalForSubstitutionOverride: D?
     get() = if (isSubstitutionOverride) originalForSubstitutionOverrideAttr else null

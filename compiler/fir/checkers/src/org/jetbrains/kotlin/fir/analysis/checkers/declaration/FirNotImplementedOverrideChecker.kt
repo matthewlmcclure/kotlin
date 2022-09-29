@@ -18,8 +18,9 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INVISIBLE_ABSTRAC
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.MANY_IMPL_MEMBER_NOT_IMPLEMENTED
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.OVERRIDING_FINAL_MEMBER_BY_DELEGATION
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED
-import org.jetbrains.kotlin.fir.containingClass
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NO_OVERRIDE_FOR_DELEGATE_WITH_DEFAULT_METHOD
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.utils.*
@@ -52,6 +53,7 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
         val delegationOverrideOfFinal = mutableListOf<Pair<FirCallableSymbol<*>, FirCallableSymbol<*>>>()
         val delegationOverrideOfOpen = mutableListOf<Pair<FirCallableSymbol<*>, FirCallableSymbol<*>>>()
         val invisibleSymbols = mutableListOf<FirCallableSymbol<*>>()
+        val nonOverriddenDefaultInterfaceMethods = mutableListOf<FirCallableSymbol<*>>()
 
         fun collectSymbol(symbol: FirCallableSymbol<*>) {
             val delegatedWrapperData = symbol.delegatedWrapperData
@@ -75,6 +77,7 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
 
                 val firstFinal = filteredOverriddenMembers.firstOrNull { it.isFinal }
                 val firstOpen = filteredOverriddenMembers.firstOrNull { it.isOpen && delegatedTo != it.unwrapFakeOverrides() }
+                val firstFromDefault = filteredOverriddenMembers.firstOrNull { it.isDefaultJavaMethod }
 
                 when {
                     firstFinal != null ->
@@ -82,6 +85,9 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
 
                     firstOpen != null ->
                         delegationOverrideOfOpen.add(symbol to firstOpen)
+
+                    firstFromDefault != null ->
+                        nonOverriddenDefaultInterfaceMethods.add(firstFromDefault)
                 }
 
                 return
@@ -138,6 +144,16 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
                 DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE,
                 delegated,
                 open,
+                context
+            )
+        }
+
+        nonOverriddenDefaultInterfaceMethods.firstOrNull()?.let { delegated ->
+            reporter.reportOn(
+                source,
+                NO_OVERRIDE_FOR_DELEGATE_WITH_DEFAULT_METHOD,
+                classSymbol,
+                delegated,
                 context
             )
         }
