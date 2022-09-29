@@ -570,7 +570,7 @@ task bundleRegular(type: (isWindows()) ? Zip : Tar) {
         exclude 'klib/platform'
         // Exclude platform libraries caches too. Keep caches for stdlib and endorsed libs.
         exclude 'klib/cache/*/org.jetbrains.kotlin.native.platform.*/**'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 }
 
@@ -583,7 +583,7 @@ task bundlePrebuilt(type: (isWindows()) ? Zip : Tar) {
         include '**'
         exclude 'dependencies'
         exclude 'klib/testLibrary'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 }
 
@@ -593,11 +593,11 @@ void configurePackingLicensesToBundle(AbstractArchiveTask task, boolean contains
         if (!containsPlatformLibraries || !isMac()) {
             exclude '**/xcode_license.pdf'
         }
-        into task.archiveBaseName
+        into "${task.archiveBaseName.get()}-${task.archiveVersion.get()}"
     }
 
     task.from(project.rootProject.file("license")) {
-        into "${task.archiveBaseName.get()}/licenses"
+        into "${task.archiveBaseName.get()}-${task.archiveVersion.get()}/licenses"
     }
 }
 
@@ -612,7 +612,7 @@ configure([bundleRegular, bundlePrebuilt]) {
     dependsOn("distDef")
     from(project.projectDir) {
         include 'RELEASE_NOTES.md'
-        into baseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 
     destinationDirectory.set(file('.'))
@@ -634,7 +634,7 @@ task 'tc-dist'(type: (isWindows()) ? Zip : Tar) {
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 
     destinationDirectory.set(file('.'))
