@@ -36,14 +36,12 @@ struct SweepTraits {
         auto *baseObject = object.GetBaseObject();
         if (!baseObject->heap()) return true;
         auto& objectData = mm::ObjectFactory<gc::ConcurrentMarkAndSweep>::NodeRef::From(baseObject).ObjectData();
-        return objectData.color() == gc::ConcurrentMarkAndSweep::ObjectData::Color::kBlack;
+        return objectData.marked();
     }
 
     static bool TryResetMark(ObjectFactory::NodeRef node) noexcept {
         auto& objectData = node.ObjectData();
-        if (objectData.color() == gc::ConcurrentMarkAndSweep::ObjectData::Color::kWhite) return false;
-        objectData.setColor(gc::ConcurrentMarkAndSweep::ObjectData::Color::kWhite);
-        return true;
+        return objectData.tryResetMark();
     }
 };
 
@@ -81,8 +79,9 @@ NO_EXTERNAL_CALLS_CHECK void gc::ConcurrentMarkAndSweep::ThreadData::OnSuspendFo
     lock.unlock();
     RuntimeLogDebug({kTagGC}, "Parallel marking in thread %d", konan::currentThreadId());
     MarkQueue markQueue;
-    gc::collectRootSetForThread<internal::MarkTraits>(markQueue, threadData_);
+    auto rootSetSize = gc::collectRootSetForThread<internal::MarkTraits>(markQueue, threadData_);
     MarkStats stats = gc::Mark<internal::MarkTraits>(markQueue);
+    stats.rootSetSize = rootSetSize;
     gc_.MergeMarkStats(stats);
 }
 
@@ -155,12 +154,13 @@ bool gc::ConcurrentMarkAndSweep::PerformFullGC(int64_t epoch) noexcept {
     RuntimeLogInfo(
             {kTagGC}, "Started GC epoch %" PRId64 ". Time since last GC %" PRIu64 " microseconds", epoch, timeStartUs - lastGCTimestampUs_);
 
-    CollectRootSetAndStartMarking();
+    auto rootSetSize = CollectRootSetAndStartMarking();
 
     // Can be unsafe, because we've stopped the world.
     auto objectsCountBefore = objectFactory_.GetSizeUnsafe();
 
     auto markStats = gc::Mark<internal::MarkTraits>(markQueue_);
+    markStats.rootSetSize = rootSetSize;
     MergeMarkStats(markStats);
 
     RuntimeLogDebug({kTagGC}, "Waiting for marking in threads");
@@ -244,13 +244,13 @@ void gc::ConcurrentMarkAndSweep::WaitForThreadsReadyToMark() noexcept {
     }
 }
 
-NO_EXTERNAL_CALLS_CHECK void gc::ConcurrentMarkAndSweep::CollectRootSetAndStartMarking() noexcept {
+NO_EXTERNAL_CALLS_CHECK size_t gc::ConcurrentMarkAndSweep::CollectRootSetAndStartMarking() noexcept {
         std::unique_lock lock(markingMutex);
         markingRequested = false;
-        gc::collectRootSet<internal::MarkTraits>(
-                markQueue_, [](mm::ThreadData& thread) { return !thread.gc().impl().gc().marking_.load(); });
+        auto rootSetSize = gc::collectRootSet<internal::MarkTraits>(markQueue_, [](mm::ThreadData& thread) { return !thread.gc().impl().gc().marking_.load(); });
         RuntimeLogDebug({kTagGC}, "Requesting marking in threads");
         markingCondVar.notify_all();
+        return rootSetSize;
 }
 
 void gc::ConcurrentMarkAndSweep::MergeMarkStats(gc::MarkStats stats) noexcept {

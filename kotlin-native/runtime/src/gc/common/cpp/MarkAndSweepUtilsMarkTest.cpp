@@ -124,15 +124,13 @@ public:
 
     const std_support::unordered_set<ObjHeader*>& marked() const { return marked_; }
 
-    static bool isEmpty(const MarkQueue& queue) noexcept {
-        return queue.empty();
-    }
-
     static void clear(MarkQueue& queue) noexcept {
         queue.clear();
     }
 
-    static ObjHeader* dequeue(MarkQueue& queue) noexcept {
+    static ObjHeader* tryDequeue(MarkQueue& queue) noexcept {
+        if (queue.empty())
+            return nullptr;
         auto top = queue.back();
         queue.pop_back();
         return top;

@@ -90,12 +90,8 @@ struct MarkStats {
 template <typename Traits>
 MarkStats Mark(typename Traits::MarkQueue& markQueue) noexcept {
     MarkStats stats;
-    stats.rootSetSize = markQueue.size();
     auto timeStart = konan::getTimeMicros();
-    while (!Traits::isEmpty(markQueue)) {
-        ObjHeader* top = Traits::dequeue(markQueue);
-
-        RuntimeAssert(!isNullOrMarker(top), "Got invalid reference %p in mark queue", top);
+    while (ObjHeader* top = Traits::tryDequeue(markQueue)) {
         RuntimeAssert(top->heap(), "Got non-heap reference %p in mark queue, permanent=%d stack=%d", top, top->permanent(), top->local());
 
         stats.aliveHeapSet++;
@@ -166,7 +162,7 @@ typename Traits::ObjectFactory::FinalizerQueue Sweep(typename Traits::ObjectFact
 }
 
 template <typename Traits>
-void collectRootSetForThread(typename Traits::MarkQueue& markQueue, mm::ThreadData& thread) {
+size_t collectRootSetForThread(typename Traits::MarkQueue& markQueue, mm::ThreadData& thread) {
     thread.gc().OnStoppedForGC();
     size_t stack = 0;
     size_t tls = 0;
@@ -184,10 +180,11 @@ void collectRootSetForThread(typename Traits::MarkQueue& markQueue, mm::ThreadDa
         }
     }
     RuntimeLogDebug({kTagGC}, "Collected root set for thread stack=%zu tls=%zu", stack, tls);
+    return stack + tls;
 }
 
 template <typename Traits>
-void collectRootSetGlobals(typename Traits::MarkQueue& markQueue) noexcept {
+size_t collectRootSetGlobals(typename Traits::MarkQueue& markQueue) noexcept {
     mm::StableRefRegistry::Instance().ProcessDeletions();
     size_t global = 0;
     size_t stableRef = 0;
@@ -205,19 +202,22 @@ void collectRootSetGlobals(typename Traits::MarkQueue& markQueue) noexcept {
         }
     }
     RuntimeLogDebug({kTagGC}, "Collected global root set global=%zu stableRef=%zu", global, stableRef);
+    return global + stableRef;
 }
 
 // TODO: This needs some tests now.
 template <typename Traits, typename F>
-void collectRootSet(typename Traits::MarkQueue& markQueue, F&& filter) noexcept {
+size_t collectRootSet(typename Traits::MarkQueue& markQueue, F&& filter) noexcept {
     Traits::clear(markQueue);
+    size_t size = 0;
     for (auto& thread : mm::GlobalData::Instance().threadRegistry().LockForIter()) {
         if (!filter(thread))
             continue;
         thread.Publish();
-        collectRootSetForThread<Traits>(markQueue, thread);
+        size += collectRootSetForThread<Traits>(markQueue, thread);
     }
-    collectRootSetGlobals<Traits>(markQueue);
+    size += collectRootSetGlobals<Traits>(markQueue);
+    return size;
 }
 
 } // namespace gc

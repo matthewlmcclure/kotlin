@@ -34,48 +34,29 @@ class FinalizerProcessor;
 class ConcurrentMarkAndSweep : private Pinned {
 public:
     class ObjectData {
-        static inline constexpr unsigned colorMask = (1 << 1) - 1;
-
     public:
-        enum class Color : unsigned {
-            kWhite = 0, // Initial color at the start of collection cycles. Objects with this color at the end of GC cycle are collected.
-                        // All new objects are allocated with this color.
-            kBlack, // Objects encountered during mark phase.
-        };
-
-        Color color() const noexcept { return static_cast<Color>(getPointerBits(next_.load(std::memory_order_relaxed), colorMask)); }
-        void setColor(Color color) noexcept { next_.store(setPointerBits(clearPointerBits(next_.load(std::memory_order_relaxed), colorMask), static_cast<unsigned>(color)), std::memory_order_relaxed); }
-        bool atomicSetToBlack() noexcept {
-            ObjectData* before = next_.load(std::memory_order_relaxed);
-            if (getPointerBits(before, colorMask) != static_cast<unsigned>(Color::kWhite))
-                return false;
-            ObjectData* black = setPointerBits(before, static_cast<unsigned>(Color::kBlack));
-            bool success = next_.compare_exchange_strong(before, black, std::memory_order_relaxed);
-            RuntimeAssert(success || hasPointerBits(before, colorMask), "next_ must have been marked black");
-            return success;
+        ObjectData* next() const noexcept { return next_.load(std::memory_order_relaxed); }
+        void setNext(ObjectData* next) noexcept { next_.store(next, std::memory_order_relaxed); }
+        bool trySetNext(ObjectData* next) noexcept {
+            ObjectData* expected = nullptr;
+            return next_.compare_exchange_strong(expected, next, std::memory_order_relaxed);
         }
 
-        ObjectData* next() const noexcept { return clearPointerBits(next_.load(std::memory_order_relaxed), colorMask); }
-        void setNext(ObjectData* next) noexcept {
-            RuntimeAssert(!hasPointerBits(next, colorMask), "next must be untagged: %p", next);
-            auto bits = getPointerBits(next_.load(std::memory_order_relaxed), colorMask);
-            next_.store(setPointerBits(next, bits), std::memory_order_relaxed);
+        bool marked() const noexcept { return next() != nullptr; }
+
+        bool tryResetMark() noexcept {
+            if (next() == nullptr) return false;
+            setNext(nullptr);
+            return true;
         }
 
     private:
-        // Color is encoded in low bits.
         std::atomic<ObjectData*> next_ = nullptr;
-    };
-
-    struct MarkQueueTraits {
-        static ObjectData* next(const ObjectData& value) noexcept { return value.next(); }
-
-        static void setNext(ObjectData& value, ObjectData* next) noexcept { value.setNext(next); }
     };
 
     enum MarkingBehavior { kMarkOwnStack, kDoNotMark };
 
-    using MarkQueue = intrusive_forward_list<ObjectData, MarkQueueTraits>;
+    using MarkQueue = intrusive_forward_list<ObjectData>;
 
     class ThreadData : private Pinned {
     public:
@@ -116,7 +97,7 @@ public:
     void SetMarkingBehaviorForTests(MarkingBehavior markingBehavior) noexcept;
     void SetMarkingRequested() noexcept;
     void WaitForThreadsReadyToMark() noexcept;
-    void CollectRootSetAndStartMarking() noexcept;
+    size_t CollectRootSetAndStartMarking() noexcept;
 
 private:
     // Returns `true` if GC has happened, and `false` if not (because someone else has suspended the threads).
@@ -140,21 +121,21 @@ namespace internal {
 struct MarkTraits {
     using MarkQueue = gc::ConcurrentMarkAndSweep::MarkQueue;
 
-    static bool isEmpty(const MarkQueue& queue) noexcept { return queue.empty(); }
+    static void clear(MarkQueue& queue) noexcept {
+        queue.clear();
+    }
 
-    static void clear(MarkQueue& queue) noexcept { queue.clear(); }
-
-    static ObjHeader* dequeue(MarkQueue& queue) noexcept {
-        auto& top = queue.front();
-        queue.pop_front();
-        auto node = mm::ObjectFactory<gc::ConcurrentMarkAndSweep>::NodeRef::From(top);
-        return node->GetObjHeader();
+    static ObjHeader* tryDequeue(MarkQueue& queue) noexcept {
+        if (auto* top = queue.try_pop_front()) {
+            auto node = mm::ObjectFactory<gc::ConcurrentMarkAndSweep>::NodeRef::From(*top);
+            return node->GetObjHeader();
+        }
+        return nullptr;
     }
 
     static void enqueue(MarkQueue& queue, ObjHeader* object) noexcept {
         auto& objectData = mm::ObjectFactory<gc::ConcurrentMarkAndSweep>::NodeRef::From(object).ObjectData();
-        if (!objectData.atomicSetToBlack()) return;
-        queue.push_front(objectData);
+        queue.try_push_front(objectData);
     }
 
     static void processInMark(MarkQueue& markQueue, ObjHeader* object) noexcept {

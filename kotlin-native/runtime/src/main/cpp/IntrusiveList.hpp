@@ -9,6 +9,20 @@
 #include <iterator>
 #include <limits>
 
+#if __has_include(<optional>)
+#include <optional>
+#elif __has_include(<experimental/optional>)
+// TODO: Remove when wasm32 is gone.
+#include <experimental/optional>
+namespace std {
+template <typename T>
+using optional = std::experimental::optional<T>;
+inline constexpr auto nullopt = std::experimental::nullopt;
+} // namespace std
+#else
+#error "No <optional>"
+#endif
+
 #include "KAssert.h"
 #include "Utils.hpp"
 
@@ -16,9 +30,11 @@ namespace kotlin {
 
 template <typename T>
 struct DefaultIntrusiveForwardListTraits {
-    static T* next(const T& value) noexcept { return value.next_; }
+    static T* next(const T& value) noexcept { return value.next(); }
 
-    static void setNext(T& value, T* next) noexcept { value.next_ = next; }
+    static void setNext(T& value, T* next) noexcept { value.setNext(next); }
+
+    static bool trySetNext(T& value, T* next) noexcept { return value.trySetNext(next); }
 };
 
 // Intrusive variant of `std::forward_list`. Notable differences:
@@ -28,11 +44,14 @@ struct DefaultIntrusiveForwardListTraits {
 // * insert_after, erase_after take `iterator` instead of `const_iterator`, because
 //   they do in fact require mutability via `Traits::setNext`.
 // * When the node leaves the container, nothing clears `next` pointer inside it.
+// * Has fallible `try_push_front` which uses `Traits::trySetNext` on a new candidate item.
+// * Has fallible `try_pop_front`.
 //
 // `Traits` must have 2 methods:
 // static T* next(const T& value);
 // static void setNext(T& value, T* next);
-// NOTE: `setNext` and `next` must be callable even on uninitialized `T` (i.e. they
+// static bool trySetNext(T& value, T* next);
+// NOTE: `trySetNext`, `setNext` and `next` must be callable even on uninitialized `T` (i.e. they
 //       should only access storage inside `T`).
 template <typename T, typename Traits = DefaultIntrusiveForwardListTraits<T>>
 class intrusive_forward_list : private MoveOnly {
@@ -123,19 +142,16 @@ public:
         pointer node_ = nullptr;
     };
 
-    intrusive_forward_list() noexcept {
-        setNext(head(), nullptr);
-    }
+    intrusive_forward_list() noexcept { clear(); }
 
-    intrusive_forward_list(intrusive_forward_list&& rhs) noexcept : size_(rhs.size_) {
+    intrusive_forward_list(intrusive_forward_list&& rhs) noexcept {
+        // Since tail() is shared, there's no need to update the last node's next_.
         setNext(head(), next(rhs.head()));
-        setNext(rhs.head(), nullptr);
-        rhs.size_ = 0;
+        rhs.clear();
     }
 
     template <typename InputIt>
-    intrusive_forward_list(InputIt first, InputIt last) noexcept {
-        setNext(head(), nullptr);
+    intrusive_forward_list(InputIt first, InputIt last) noexcept : intrusive_forward_list() {
         assign(std::move(first), std::move(last));
     }
 
@@ -148,13 +164,13 @@ public:
     }
 
     void swap(intrusive_forward_list& rhs) noexcept {
+        // Since tail() is shared, there's no need to swap the last nodes' next_.
         using std::swap;
         auto thisNext = next(head());
         auto rhsNext = next(rhs.head());
         swap(thisNext, rhsNext);
         setNext(head(), thisNext);
         setNext(rhs.head(), rhsNext);
-        swap(size_, rhs.size_);
     }
 
     template <typename InputIt>
@@ -174,108 +190,119 @@ public:
     const_iterator begin() const noexcept { return const_iterator(next(head())); }
     const_iterator cbegin() const noexcept { return const_iterator(next(head())); }
 
-    iterator end() noexcept { return iterator(); }
-    const_iterator end() const noexcept { return const_iterator(); }
-    const_iterator cend() const noexcept { return const_iterator(); }
+    iterator end() noexcept { return iterator(tail()); }
+    const_iterator end() const noexcept { return const_iterator(tail()); }
+    const_iterator cend() const noexcept { return const_iterator(tail()); }
 
-    bool empty() const noexcept { return size_ == 0; }
+    bool empty() const noexcept { return next(head()) == tail(); }
 
     size_type max_size() const noexcept { return std::numeric_limits<size_type>::max(); }
 
-    void clear() noexcept { setNext(head(), nullptr); size_ = 0; }
+    void clear() noexcept { setNext(head(), tail()); }
 
     iterator insert_after(iterator pos, reference value) noexcept {
-        pointer nextNode = next(pos.node_);
+        RuntimeAssert(pos != end(), "Attempted to insert_after end()");
+        RuntimeAssert(pos != iterator(), "Attempted to insert_after empty iterator");
+        setNext(&value, next(pos.node_));
         setNext(pos.node_, &value);
-        setNext(&value, nextNode);
-        ++size_;
         return iterator(&value);
     }
 
     template <typename InputIt>
     iterator insert_after(iterator pos, InputIt first, InputIt last) noexcept {
+        RuntimeAssert(pos != end(), "Attempted to insert_after end()");
+        RuntimeAssert(pos != iterator(), "Attempted to insert_after empty iterator");
         pointer nextNode = next(pos.node_);
         pointer prevNode = pos.node_;
-        size_t newSize = size_;
         for (auto it = first; it != last; ++it) {
-            setNext(prevNode, &*it);
-            prevNode = &*it;
-            ++newSize;
+            pointer newNode = &*it;
+            setNext(prevNode, newNode);
+            prevNode = newNode;
         }
         setNext(prevNode, nextNode);
-        size_ = newSize;
         return iterator(prevNode);
     }
 
     iterator erase_after(iterator pos) noexcept {
-        pointer prevNode = pos.node_;
-        pointer nodeToErase = next(pos.node_);
-        if (!nodeToErase) {
-            return end();
-        }
-        pointer nextNode = next(nodeToErase);
-        setNext(prevNode, nextNode);
-        setNext(nodeToErase, nullptr);
-        --size_;
+        RuntimeAssert(pos != end(), "Attempted to erase_after end()");
+        RuntimeAssert(pos != iterator(), "Attempted to erase_after empty iterator");
+        pointer nextNode = next(next(pos.node_));
+        setNext(pos.node_, nextNode);
         return iterator(nextNode);
     }
 
     iterator erase_after(iterator first, iterator last) noexcept {
-        size_ -= std::distance(first, last) - 1;
+        RuntimeAssert(first != end(), "Attempted to erase_after starting at end()");
+        RuntimeAssert(first != iterator(), "Attempted to erase_after starting at empty iterator");
+        RuntimeAssert(last != iterator(), "Attempted to erase_after ending at empty iterator");
         setNext(first.node_, last.node_);
         return last;
     }
 
     void push_front(reference value) noexcept { insert_after(before_begin(), value); }
 
+    bool try_push_front(reference value) noexcept { return try_insert_after(before_begin(), value) != std::nullopt; }
+
     void pop_front() noexcept { erase_after(before_begin()); }
+
+    pointer try_pop_front() noexcept {
+        pointer top = next(head());
+        if (top == tail()) {
+            return nullptr;
+        }
+        setNext(head(), next(top));
+        return top;
+    }
 
     void remove(reference value) noexcept {
         // TODO: no need to move on after finding the first match.
-        return remove_if([&value](const_reference x) { return &x == &value; });
+        return remove_if([&value](const_reference x) noexcept { return &x == &value; });
     }
 
     template <typename P>
-    void remove_if(P p) noexcept {
-        size_t newSize = size_;
+    void remove_if(P p) noexcept(noexcept(p(std::declval<const_reference>()))) {
         pointer prev = head();
         pointer node = next(prev);
-        while (node) {
+        while (node != tail()) {
             if (p(*node)) {
                 // The node is being removed.
                 node = next(node);
                 setNext(prev, node);
-                --newSize;
             } else {
                 // The node is staying.
                 prev = node;
                 node = next(node);
             }
         }
-        size_ = newSize;
     }
 
     // TODO: Implement splice_after.
-
-    size_type size() const noexcept {
-        return size_;
-    }
 
 private:
     static pointer next(const_pointer node) noexcept { return Traits::next(*node); }
 
     static void setNext(pointer node, pointer next) noexcept { return Traits::setNext(*node, next); }
 
-    pointer head() noexcept {
-        return reinterpret_cast<pointer>(headStorage_);
+    static bool trySetNext(pointer node, pointer next) noexcept { return Traits::trySetNext(*node, next); }
+
+    pointer head() noexcept { return reinterpret_cast<pointer>(headStorage_); }
+    const_pointer head() const noexcept { return reinterpret_cast<const_pointer>(headStorage_); }
+
+    static pointer tail() noexcept { return reinterpret_cast<pointer>(tailStorage_); }
+
+    // TODO: Consider making public.
+    std::optional<iterator> try_insert_after(iterator pos, reference value) noexcept {
+        RuntimeAssert(pos != end(), "Attempted to try_insert_after end()");
+        RuntimeAssert(pos != iterator(), "Attempted to try_insert_after empty iterator");
+        if (!trySetNext(&value, next(pos.node_))) {
+            return std::nullopt;
+        }
+        setNext(pos.node_, &value);
+        return iterator(&value);
     }
 
-    const_pointer head() const noexcept {
-        return reinterpret_cast<const_pointer>(headStorage_);
-    }
-
-    alignas(value_type) char headStorage_[sizeof(value_type)] = { 0 };
-    size_t size_ = 0;
+    alignas(value_type) char headStorage_[sizeof(value_type)] = {0};
+    alignas(value_type) static inline char tailStorage_[sizeof(value_type)] = {0};
 };
 
 template <typename InputIt>
