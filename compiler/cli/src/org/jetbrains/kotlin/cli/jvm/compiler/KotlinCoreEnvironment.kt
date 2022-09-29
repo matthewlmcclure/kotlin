@@ -60,7 +60,6 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.toBooleanLenient
-import org.jetbrains.kotlin.cli.jvm.compiler.jarfs.FastJarFileSystem
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
 import org.jetbrains.kotlin.cli.jvm.javac.JavacWrapperRegistrar
@@ -134,22 +133,7 @@ class KotlinCoreEnvironment private constructor(
                     applicationEnvironment.jarFileSystem
                 }
                 configuration.getBoolean(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM) || configuration.getBoolean(CommonConfigurationKeys.USE_FIR) -> {
-                    val fastJarFs = FastJarFileSystem.createIfUnmappingPossible()
-
-                    if (fastJarFs == null) {
-                        messageCollector?.report(
-                            STRONG_WARNING,
-                            "Your JDK doesn't seem to support mapped buffer unmapping, so the slower (old) version of JAR FS will be used"
-                        )
-                        applicationEnvironment.jarFileSystem
-                    } else {
-
-                        Disposer.register(disposable) {
-                            fastJarFs.clearHandlersCache()
-                        }
-
-                        fastJarFs
-                    }
+                    applicationEnvironment.fastJarFileSystem ?: applicationEnvironment.jarFileSystem
                 }
 
                 else -> applicationEnvironment.jarFileSystem
@@ -471,7 +455,10 @@ class KotlinCoreEnvironment private constructor(
         ): KotlinCoreEnvironment {
             val configuration = initialConfiguration.copy()
             // Tests are supposed to create a single project and dispose it right after use
-            val appEnv = createApplicationEnvironment(parentDisposable, configuration, unitTestMode = true)
+            val appEnv =
+                createApplicationEnvironment(
+                    parentDisposable, configuration, unitTestMode = true, configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+                )
             val projectEnv = ProjectEnvironment(parentDisposable, appEnv, configuration)
             return KotlinCoreEnvironment(projectEnv, configuration, extensionConfigs)
         }
@@ -486,7 +473,12 @@ class KotlinCoreEnvironment private constructor(
 
         @TestOnly
         fun createProjectEnvironmentForTests(parentDisposable: Disposable, configuration: CompilerConfiguration): ProjectEnvironment {
-            val appEnv = createApplicationEnvironment(parentDisposable, configuration, unitTestMode = true)
+            val appEnv = createApplicationEnvironment(
+                parentDisposable,
+                configuration,
+                unitTestMode = true,
+                configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+            )
             return ProjectEnvironment(parentDisposable, appEnv, configuration)
         }
 
@@ -514,7 +506,12 @@ class KotlinCoreEnvironment private constructor(
                         // they was disposed, this needs to be fixed
                         Disposer.newDisposable("Disposable for the KotlinCoreApplicationEnvironment")
                     }
-                    ourApplicationEnvironment = createApplicationEnvironment(disposable, configuration, unitTestMode)
+                    ourApplicationEnvironment = createApplicationEnvironment(
+                        disposable,
+                        configuration,
+                        unitTestMode,
+                        configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+                    )
                     ourProjectCount = 0
                     Disposer.register(disposable, Disposable {
                         synchronized(APPLICATION_LOCK) {
@@ -579,9 +576,12 @@ class KotlinCoreEnvironment private constructor(
         }
 
         private fun createApplicationEnvironment(
-            parentDisposable: Disposable, configuration: CompilerConfiguration, unitTestMode: Boolean
+            parentDisposable: Disposable, configuration: CompilerConfiguration, unitTestMode: Boolean, messageCollector: MessageCollector?
         ): KotlinCoreApplicationEnvironment {
-            val applicationEnvironment = KotlinCoreApplicationEnvironment.create(parentDisposable, unitTestMode)
+            val applicationEnvironment = KotlinCoreApplicationEnvironment.create(
+                parentDisposable, unitTestMode,
+                messageCollector
+            )
 
             registerApplicationExtensionPointsAndExtensionsFrom(configuration, "extensions/compiler.xml")
 
