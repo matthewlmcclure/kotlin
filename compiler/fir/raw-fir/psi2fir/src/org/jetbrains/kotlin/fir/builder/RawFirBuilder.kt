@@ -920,6 +920,7 @@ open class RawFirBuilder(
                 isInner = owner.hasModifier(INNER_KEYWORD)
                 isFromSealedClass = owner.hasModifier(SEALED_KEYWORD) && explicitVisibility !== Visibilities.Private
                 isFromEnumClass = owner.hasModifier(ENUM_KEYWORD)
+                isFromInterfaceClass = (owner as? KtClass)?.isInterface() == true
             }
             return buildPrimaryConstructor {
                 source = constructorSource
@@ -1510,6 +1511,7 @@ open class RawFirBuilder(
                     isInner = owner.hasModifier(INNER_KEYWORD)
                     isFromSealedClass = owner.hasModifier(SEALED_KEYWORD) && explicitVisibility !== Visibilities.Private
                     isFromEnumClass = owner.hasModifier(ENUM_KEYWORD)
+                    isFromInterfaceClass = (owner as? KtClass)?.isInterface() == true
                 }
                 dispatchReceiverType = owner.obtainDispatchReceiverForConstructor()
                 symbol = FirConstructorSymbol(callableIdForClassConstructor())

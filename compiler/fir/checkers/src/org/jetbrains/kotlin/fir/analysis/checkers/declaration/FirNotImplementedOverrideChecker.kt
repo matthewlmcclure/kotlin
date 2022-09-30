@@ -86,8 +86,10 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
                     firstOpen != null ->
                         delegationOverrideOfOpen.add(symbol to firstOpen)
 
-                    firstFromDefault != null ->
+                    firstFromDefault != null -> {
+                        firstFromDefault.isDefaultJavaMethod
                         nonOverriddenDefaultInterfaceMethods.add(firstFromDefault)
+                    }
                 }
 
                 return

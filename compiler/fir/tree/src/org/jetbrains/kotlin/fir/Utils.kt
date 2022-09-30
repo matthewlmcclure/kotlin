@@ -112,6 +112,7 @@ fun FirDeclarationStatus.copy(
     isStatic: Boolean = this.isStatic,
     isFromSealedClass: Boolean = this.isFromSealedClass,
     isFromEnumClass: Boolean = this.isFromEnumClass,
+    isFromInterfaceClass: Boolean = this.isFromInterfaceClass,
     isFun: Boolean = this.isFun,
 ): FirDeclarationStatus {
     val newVisibility = visibility ?: this.visibility
@@ -140,5 +141,6 @@ fun FirDeclarationStatus.copy(
         this.isFromSealedClass = isFromSealedClass
         this.isFromEnumClass = isFromEnumClass
         this.isFun = isFun
+        this.isFromInterfaceClass = isFromInterfaceClass
     }
 }

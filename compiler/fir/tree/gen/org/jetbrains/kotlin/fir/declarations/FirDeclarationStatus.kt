@@ -9,7 +9,8 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.visitors.FirTransformer
+import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
 /*
  * This file was generated automatically
@@ -38,6 +39,7 @@ interface FirDeclarationStatus : FirElement {
     val isFromSealedClass: Boolean
     val isFromEnumClass: Boolean
     val isFun: Boolean
+    val isFromInterfaceClass: Boolean
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitDeclarationStatus(this, data)
 

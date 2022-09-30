@@ -10,7 +10,8 @@ import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.visitors.FirTransformer
+import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
 /*
  * This file was generated automatically
@@ -39,6 +40,7 @@ interface FirResolvedDeclarationStatus : FirDeclarationStatus {
     override val isFromSealedClass: Boolean
     override val isFromEnumClass: Boolean
     override val isFun: Boolean
+    override val isFromInterfaceClass: Boolean
     val effectiveVisibility: EffectiveVisibility
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitResolvedDeclarationStatus(this, data)

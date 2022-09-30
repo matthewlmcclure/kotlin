@@ -42,6 +42,7 @@ inline val FirCallableSymbol<*>.isConst: Boolean get() = rawStatus.isConst
 inline val FirCallableSymbol<*>.isLateInit: Boolean get() = rawStatus.isLateInit
 inline val FirCallableSymbol<*>.isFromSealedClass: Boolean get() = rawStatus.isFromSealedClass
 inline val FirCallableSymbol<*>.isFromEnumClass: Boolean get() = rawStatus.isFromEnumClass
+inline val FirCallableSymbol<*>.isFromInterfaceClass: Boolean get() = rawStatus.isFromInterfaceClass
 inline val FirCallableSymbol<*>.isFun: Boolean get() = rawStatus.isFun
 
 // ---------------------- regular with status ----------------------

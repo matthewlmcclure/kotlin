@@ -906,6 +906,7 @@ class DeclarationsConverter(
             isInner = classWrapper.isInner()
             isFromSealedClass = classWrapper.isSealed() && explicitVisibility !== Visibilities.Private
             isFromEnumClass = classWrapper.isEnum()
+            isFromInterfaceClass = classWrapper.isInterface()
         }
 
         return PrimaryConstructor(

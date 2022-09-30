@@ -62,7 +62,7 @@ val FirCallableSymbol<*>.isDefaultJavaMethod: Boolean
 
         else -> {
             // Check that we have a non-abstract method from Java interface
-            origin == FirDeclarationOrigin.Enhancement && modality == Modality.OPEN
+            resolvedStatus.isFromInterfaceClass && origin == FirDeclarationOrigin.Enhancement && modality == Modality.OPEN
         }
     }
 

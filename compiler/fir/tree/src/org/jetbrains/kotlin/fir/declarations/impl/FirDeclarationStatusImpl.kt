@@ -134,6 +134,12 @@ open class FirDeclarationStatusImpl(
             this[FROM_ENUM] = value
         }
 
+    override var isFromInterfaceClass: Boolean
+        get() = this[FROM_INTERFACE]
+        set(value) {
+            this[FROM_INTERFACE] = value
+        }
+
     override var isFun: Boolean
         get() = this[FUN]
         set(value) {
@@ -158,7 +164,8 @@ open class FirDeclarationStatusImpl(
         STATIC(0x4000),
         FROM_SEALED(0x8000),
         FROM_ENUM(0x10000),
-        FUN(0x20000)
+        FUN(0x20000),
+        FROM_INTERFACE(0x40000)
     }
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {}

@@ -142,5 +142,6 @@ inline fun FirDeclarationStatus.transform(
         isStatic = this@transform.isStatic
         isFromSealedClass = this@transform.isFromSealedClass
         isFromEnumClass = this@transform.isFromEnumClass
+        isFromInterfaceClass = this@transform.isFromInterfaceClass
     }.apply(init)
 }
