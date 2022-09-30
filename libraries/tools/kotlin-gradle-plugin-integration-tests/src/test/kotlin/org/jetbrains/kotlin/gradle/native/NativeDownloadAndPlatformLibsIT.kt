@@ -180,10 +180,10 @@ class NativeDownloadAndPlatformLibsIT : BaseGradleIT() {
 
     @Test
     fun testNoGenerationForUnsupportedHost() {
-        val unsupportedTarget = when {
-            HostManager.hostIsMac -> KonanTarget.LINUX_MIPSEL32
-            else -> KonanTarget.IOS_X64
-        }
+        // macOS host support generation for all platforms
+        Assume.assumeFalse(HostManager.hostIsMac)
+
+        val unsupportedTarget = KonanTarget.IOS_X64
 
         platformLibrariesProject(unsupportedTarget.presetName).buildWithLightDist("assemble") {
             assertSuccessful()

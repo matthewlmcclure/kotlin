@@ -44,7 +44,8 @@ abstract class BaseGradleIT {
 
     internal open fun defaultBuildOptions(): BuildOptions = BuildOptions(
         withDaemon = true,
-        enableKpmModelMapping = isKpmModelMappingEnabled
+        enableKpmModelMapping = isKpmModelMappingEnabled,
+        javaHome = File("/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home")
     )
 
     open val defaultGradleVersion: GradleVersionRequired
