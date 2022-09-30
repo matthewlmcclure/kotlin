@@ -1973,6 +1973,13 @@ internal class VirtualMemberHiddenImpl(
     override val token: KtLifetimeToken,
 ) : KtFirDiagnostic.VirtualMemberHidden(), KtAbstractFirDiagnostic<KtNamedDeclaration>
 
+internal class NoOverrideForDelegateWithDefaultMethodImpl(
+    override val classOrObject: KtClassLikeSymbol,
+    override val overriddenDeclaration: KtCallableSymbol,
+    override val firDiagnostic: KtPsiDiagnostic,
+    override val token: KtLifetimeToken,
+) : KtFirDiagnostic.NoOverrideForDelegateWithDefaultMethod(), KtAbstractFirDiagnostic<KtClassOrObject>
+
 internal class ManyCompanionObjectsImpl(
     override val firDiagnostic: KtPsiDiagnostic,
     override val token: KtLifetimeToken,

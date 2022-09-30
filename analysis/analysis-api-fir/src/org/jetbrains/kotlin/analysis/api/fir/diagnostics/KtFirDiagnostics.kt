@@ -1647,6 +1647,12 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val overriddenContainer: KtClassLikeSymbol
     }
 
+    abstract class NoOverrideForDelegateWithDefaultMethod : KtFirDiagnostic<KtClassOrObject>() {
+        override val diagnosticClass get() = NoOverrideForDelegateWithDefaultMethod::class
+        abstract val classOrObject: KtClassLikeSymbol
+        abstract val overriddenDeclaration: KtCallableSymbol
+    }
+
     abstract class ManyCompanionObjects : KtFirDiagnostic<KtObjectDeclaration>() {
         override val diagnosticClass get() = ManyCompanionObjects::class
     }
