@@ -364,7 +364,7 @@ class NativeDownloadAndPlatformLibsIT : BaseGradleIT() {
     }
 
     @Test
-    fun `download from maven should fall if there is no such build in the default repos`() {
+    fun `download from maven should fail if there is no such build in the default repos`() {
         with(transformNativeTestProjectWithPluginDsl("native-download-maven")) {
             gradleProperties().appendText(
                 """
