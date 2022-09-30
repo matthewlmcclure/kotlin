@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.calls.ConeCallConflictResolverFactory
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirBuiltinSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCloneableSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.providers.impl.FirDependenciesSymbolProviderImpl
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
 import org.jetbrains.kotlin.fir.session.FirAbstractSessionFactory
@@ -46,10 +45,10 @@ object FirJsSessionFactory : FirAbstractSessionFactory() {
             null,
             createKotlinScopeProvider = { FirKotlinScopeProvider { _, declaredMemberScope, _, _ -> declaredMemberScope } },
             createProviders = { session, builtinsModuleData, kotlinScopeProvider ->
-                listOf(
+                listOfNotNull(
                     FirBuiltinSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
                     FirCloneableSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
-                    FirDependenciesSymbolProviderImpl(session),
+                    createDependenciesProviderIfRequired(session),
                 ) + resolveJsLibraries(module, testServices, configuration).map {
                     KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, it)
                 }

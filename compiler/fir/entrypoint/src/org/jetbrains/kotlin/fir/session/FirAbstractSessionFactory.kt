@@ -91,7 +91,7 @@ abstract class FirAbstractSessionFactory {
         createProviders: (
             FirSession, FirKotlinScopeProvider, FirSymbolProvider,
             FirSwitchableExtensionDeclarationsSymbolProvider?,
-            FirDependenciesSymbolProviderImpl
+            FirDependenciesSymbolProvider?
         ) -> List<FirSymbolProvider>
     ): FirSession {
         return FirCliSession(sessionProvider, FirSession.Kind.Source).apply session@{
@@ -119,7 +119,7 @@ abstract class FirAbstractSessionFactory {
                 init()
             }.configure()
 
-            val dependenciesSymbolProvider = FirDependenciesSymbolProviderImpl(this)
+            val dependenciesSymbolProvider = createDependenciesProviderIfRequired(this)
             val generatedSymbolsProvider = FirSwitchableExtensionDeclarationsSymbolProvider.create(this)
 
             val providers = createProviders(
@@ -129,11 +129,11 @@ abstract class FirAbstractSessionFactory {
             register(FirSymbolProvider::class, FirCompositeSymbolProvider(this, providers))
 
             generatedSymbolsProvider?.let { register(FirSwitchableExtensionDeclarationsSymbolProvider::class, it) }
-
-            register(
-                FirDependenciesSymbolProvider::class,
-                dependenciesSymbolProvider
-            )
+            dependenciesSymbolProvider?.let { register(FirDependenciesSymbolProvider::class, it) }
         }
+    }
+
+    protected fun createDependenciesProviderIfRequired(session: FirSession): FirDependenciesSymbolProvider? {
+        return if (session.nullableModuleData != null) FirDependenciesSymbolProviderImpl(session) else null
     }
 }

@@ -104,7 +104,7 @@ object FirSessionFactory : FirAbstractSessionFactory() {
             registerExtraComponents = { it.registerCommonJavaComponents(projectEnvironment.getJavaModuleResolver()) },
             createKotlinScopeProvider = { FirKotlinScopeProvider(::wrapScopeWithJvmMapped) },
             createProviders = { session, builtinsModuleData, kotlinScopeProvider ->
-                listOf(
+                listOfNotNull(
                     JvmClassFileBasedSymbolProvider(
                         session,
                         dependencyList.moduleDataProvider,
@@ -115,7 +115,7 @@ object FirSessionFactory : FirAbstractSessionFactory() {
                     ),
                     FirBuiltinSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
                     FirCloneableSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
-                    FirDependenciesSymbolProviderImpl(session),
+                    createDependenciesProviderIfRequired(session),
                     OptionalAnnotationClassesProvider(session, dependencyList.moduleDataProvider, kotlinScopeProvider, packagePartProvider)
                 )
             }
