@@ -114,6 +114,9 @@ class NativeCompilerDownloader(
             repo.metadataSources {
                 it.artifact()
             }
+            repo.mavenContent { desc ->
+                desc.includeModule(KOTLIN_GROUP_ID, dependencyName)
+            }
         }
     }
 
