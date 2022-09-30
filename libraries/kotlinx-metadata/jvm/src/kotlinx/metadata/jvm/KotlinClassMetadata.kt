@@ -56,8 +56,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
          * A [KmClassVisitor] that generates the metadata of a Kotlin class.
          */
         @Deprecated(
-            writerApiMessage,
-            ReplaceWith("KotlinClassMetadata.writeClass(kmClass, metadataVersion, extraInt)"),
+            "$writerApiMessage, such as KotlinClassMetadata.writeClass(kmClass, metadataVersion, extraInt)",
         )
         class Writer : ClassWriter(JvmStringTable()) {
             /**
@@ -70,8 +69,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
              */
             @JvmOverloads
             @Deprecated(
-                writerApiMessage,
-                ReplaceWith("KotlinClassMetadata.writeClass(kmClass, metadataVersion, extraInt)"),
+                "$writerApiMessage, such as KotlinClassMetadata.writeClass(kmClass, metadataVersion, extraInt)",
             )
             fun write(
                 metadataVersion: IntArray = COMPATIBLE_METADATA_VERSION,
@@ -116,8 +114,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
          * A [KmPackageVisitor] that generates the metadata of a Kotlin file facade.
          */
         @Deprecated(
-            visitorApiMessage,
-            ReplaceWith("KotlinClassMetadata.writeFileFacade(kmPackage, metadataVersion, extraInt)")
+            "$visitorApiMessage, such as KotlinClassMetadata.writeFileFacade(kmPackage, metadataVersion, extraInt)",
         )
         class Writer : PackageWriter(JvmStringTable()) {
             /**
@@ -130,8 +127,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
              */
             @JvmOverloads
             @Deprecated(
-                visitorApiMessage,
-                ReplaceWith("KotlinClassMetadata.writeFileFacade(kmPackage, metadataVersion, extraInt)")
+                "$visitorApiMessage, such as KotlinClassMetadata.writeFileFacade(kmPackage, metadataVersion, extraInt)",
             )
             fun write(
                 metadataVersion: IntArray = COMPATIBLE_METADATA_VERSION,
@@ -194,7 +190,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
          * the resulting metadata will represent a _non-lambda_ synthetic class.
          */
         @Deprecated(
-            "Visitor API is deprecated as excessive and cumbersome. Please use KotlinClassMetadata.writeLambda(kmLambda, metadataVersion, extraInt) " +
+            writerApiMessage + ": KotlinClassMetadata.writeLambda(kmLambda, metadataVersion, extraInt) " +
                     "or KotlinClassMetadata.writeSyntheticClass(metadataVersion, extraInt) for a non-lambda synthetic class",
         )
         class Writer : LambdaWriter(JvmStringTable()) {
@@ -207,7 +203,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
              *   0 by default
              */
             @Deprecated(
-                "Visitor API is deprecated as excessive and cumbersome. Please use KotlinClassMetadata.writeLambda(kmLambda, metadataVersion, extraInt) " +
+                writerApiMessage + ": KotlinClassMetadata.writeLambda(kmLambda, metadataVersion, extraInt) " +
                         "or KotlinClassMetadata.writeSyntheticClass(metadataVersion, extraInt) for a non-lambda synthetic class",
             )
             @JvmOverloads
@@ -241,8 +237,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
          * A writer that generates the metadata of a multi-file class facade.
          */
         @Deprecated(
-            writerApiMessage,
-            ReplaceWith("KotlinClassMetadata.writeMultiFileClassFacade(partClassNames, metadataVersion, extraInt)"),
+            "$writerApiMessage, such as KotlinClassMetadata.writeMultiFileClassFacade(partClassNames, metadataVersion, extraInt)",
         )
         class Writer {
             /**
@@ -255,8 +250,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
              *   0 by default
              */
             @Deprecated(
-                writerApiMessage,
-                ReplaceWith("KotlinClassMetadata.writeMultiFileClassFacade(partClassNames, metadataVersion, extraInt)"),
+                "$writerApiMessage, such as KotlinClassMetadata.writeMultiFileClassFacade(partClassNames, metadataVersion, extraInt)",
             )
             @JvmOverloads
             fun write(
@@ -314,8 +308,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
          * A [KmPackageVisitor] that generates the metadata of a multi-file class part.
          */
         @Deprecated(
-            writerApiMessage,
-            ReplaceWith("KotlinClassMetadata.writeMultiFileClassPart(kmPackage, facadeClassName, metadataVersion, extraInt)")
+            "$writerApiMessage, such as KotlinClassMetadata.writeMultiFileClassPart(kmPackage, facadeClassName, metadataVersion, extraInt)"
         )
         class Writer : PackageWriter(JvmStringTable()) {
             /**
@@ -328,8 +321,7 @@ sealed class KotlinClassMetadata(val header: Metadata) {
              *   0 by default
              */
             @Deprecated(
-                writerApiMessage,
-                ReplaceWith("KotlinClassMetadata.writeMultiFileClassPart(kmPackage, facadeClassName, metadataVersion, extraInt)")
+                "$writerApiMessage, such as KotlinClassMetadata.writeMultiFileClassPart(kmPackage, facadeClassName, metadataVersion, extraInt)"
             )
             @JvmOverloads
             fun write(
@@ -535,4 +527,4 @@ internal const val visitorApiMessage =
     "Visitor API is deprecated as excessive and cumbersome. Please use nodes (such as KmClass) and their properties."
 
 internal const val writerApiMessage =
-    "Visitor API is deprecated as excessive and cumbersome. Please use companion functions on KotlinClassMetadata, such as KotlinClassMetadata.writeClass."
+    "Visitor Writer API is deprecated as excessive and cumbersome. Please use companion functions on KotlinClassMetadata"
