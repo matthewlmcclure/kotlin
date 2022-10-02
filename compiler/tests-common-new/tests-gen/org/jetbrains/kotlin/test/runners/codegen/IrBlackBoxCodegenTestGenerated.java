@@ -50160,9 +50160,9 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
         }
 
         @Test
-        @TestMetadata("MfvcFieldInitializationOrder.kt")
+        @TestMetadata("mfvcFieldInitializationOrder.kt")
         public void testMfvcFieldInitializationOrder() throws Exception {
-            runTest("compiler/testData/codegen/box/valueClasses/MfvcFieldInitializationOrder.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+            runTest("compiler/testData/codegen/box/valueClasses/mfvcFieldInitializationOrder.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
         }
 
         @Test
