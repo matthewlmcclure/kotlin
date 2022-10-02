@@ -46,8 +46,8 @@ import org.jetbrains.kotlin.fir.pipeline.convertToIr
 import org.jetbrains.kotlin.fir.pipeline.runCheckers
 import org.jetbrains.kotlin.fir.pipeline.runResolution
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.session.FirSessionFactory.createSessionWithDependencies
 import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
+import org.jetbrains.kotlin.fir.session.createSessionWithDependencies
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.types.arrayElementType
