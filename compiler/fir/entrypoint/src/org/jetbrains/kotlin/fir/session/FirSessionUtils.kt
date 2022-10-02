@@ -40,7 +40,7 @@ inline fun createSessionWithDependencies(
     val dependencyList = DependencyListForCliModule.build(moduleName, platform, analyzerServices, dependenciesConfigurator)
     val sessionProvider = externalSessionProvider ?: FirProjectSessionProvider()
     val packagePartProvider = projectEnvironment.getPackagePartProvider(librariesScope)
-    FirSessionFactory.createLibrarySession(
+    FirJvmSessionFactory.createLibrarySession(
         moduleName,
         sessionProvider,
         dependencyList,
@@ -58,7 +58,7 @@ inline fun createSessionWithDependencies(
         dependencyList.platform,
         dependencyList.analyzerServices
     )
-    return FirSessionFactory.createModuleBasedSession(
+    return FirJvmSessionFactory.createModuleBasedSession(
         mainModuleData,
         sessionProvider,
         javaSourcesScope,
