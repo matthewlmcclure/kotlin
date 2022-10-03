@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.checkDeclarationParents
 import org.jetbrains.kotlin.backend.common.IrValidator
 import org.jetbrains.kotlin.backend.common.IrValidatorConfig
+import org.jetbrains.kotlin.backend.common.checkDeclarationParents
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataMonolithicSerializer
@@ -17,11 +17,15 @@ import org.jetbrains.kotlin.backend.konan.lower.CacheInfoBuilder
 import org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier
 import org.jetbrains.kotlin.backend.konan.lower.SamSuperTypesChecker
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExport
-import org.jetbrains.kotlin.backend.konan.serialization.*
+import org.jetbrains.kotlin.backend.konan.serialization.KonanIdSignaturer
+import org.jetbrains.kotlin.backend.konan.serialization.KonanIrModuleSerializer
+import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerDesc
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
+import org.jetbrains.kotlin.ir.declarations.path
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.name.FqName
@@ -67,7 +71,7 @@ internal fun fileValidationCallback(state: ActionState, irFile: IrFile, context:
 internal fun konanUnitPhase(
         name: String,
         description: String,
-        prerequisite: Set<NamedCompilerPhase<Context, *>> = emptySet(),
+        prerequisite: Set<AbstractNamedCompilerPhase<Context, *, *>> = emptySet(),
         op: Context.() -> Unit
 ) = namedOpUnitPhase(name, description, prerequisite, op)
 
@@ -227,7 +231,7 @@ internal val finalizeCachePhase = konanUnitPhase(
         description = "Finalize cache (rename temp to the final dist)"
 )
 
-internal val allLoweringsPhase = NamedCompilerPhase(
+internal val allLoweringsPhase = SameTypeNamedCompilerPhase(
         name = "IrLowering",
         description = "IR Lowering",
         // TODO: The lowerings before inlinePhase should be aligned with [NativeInlineFunctionResolver.kt]
@@ -290,7 +294,7 @@ internal val allLoweringsPhase = NamedCompilerPhase(
         actions = setOf(defaultDumper, ::moduleValidationCallback)
 )
 
-internal val dependenciesLowerPhase = NamedCompilerPhase(
+internal val dependenciesLowerPhase = SameTypeNamedCompilerPhase(
         name = "LowerLibIR",
         description = "Lower library's IR",
         prerequisite = emptySet(),
@@ -328,7 +332,7 @@ internal val dependenciesLowerPhase = NamedCompilerPhase(
             }
         })
 
-internal val umbrellaCompilation = NamedCompilerPhase(
+internal val umbrellaCompilation = SameTypeNamedCompilerPhase(
         name = "UmbrellaCompilation",
         description = "A batched compilation with shared FE and ME phases",
         prerequisite = emptySet(),
@@ -381,7 +385,7 @@ internal val entryPointPhase = makeCustomPhase<Context, IrModuleFragment>(
         }
 )
 
-internal val bitcodePhase = NamedCompilerPhase(
+internal val bitcodePhase = SameTypeNamedCompilerPhase(
         name = "Bitcode",
         description = "LLVM Bitcode generation",
         lower = returnsInsertionPhase then
@@ -406,7 +410,7 @@ internal val bitcodePhase = NamedCompilerPhase(
                 cStubsPhase
 )
 
-private val bitcodePostprocessingPhase = NamedCompilerPhase(
+private val bitcodePostprocessingPhase = SameTypeNamedCompilerPhase(
         name = "BitcodePostprocessing",
         description = "Optimize and rewrite bitcode",
         lower = checkExternalCallsPhase then
@@ -417,7 +421,7 @@ private val bitcodePostprocessingPhase = NamedCompilerPhase(
                 rewriteExternalCallsCheckerGlobals
 )
 
-private val backendCodegen = NamedCompilerPhase(
+private val backendCodegen = SameTypeNamedCompilerPhase(
         name = "Backend codegen",
         description = "Backend code generation",
         lower = entryPointPhase then
@@ -451,7 +455,7 @@ internal val disposeGenerationStatePhase = namedUnitPhase(
         }
 )
 
-private val phasesOverMainModule = NamedCompilerPhase(
+private val phasesOverMainModule = SameTypeNamedCompilerPhase(
         name = "PhasesOverMainModule",
         description = "Phases over main module",
         lower = takeFromContext<Context, Unit, IrModuleFragment> { it.irModule!! } then
@@ -461,7 +465,7 @@ private val phasesOverMainModule = NamedCompilerPhase(
         prerequisite = setOf(psiToIrPhase)
 )
 
-private val entireBackend = NamedCompilerPhase(
+private val entireBackend = SameTypeNamedCompilerPhase(
         name = "EntireBackend",
         description = "Entire backend",
         lower = createGenerationStatePhase then
@@ -475,7 +479,7 @@ private val entireBackend = NamedCompilerPhase(
                 disposeGenerationStatePhase
 )
 
-private val middleEnd = NamedCompilerPhase(
+private val middleEnd = SameTypeNamedCompilerPhase(
         name = "MiddleEnd",
         description = "Build and prepare IR for back end",
         lower = createSymbolTablePhase then
@@ -489,7 +493,7 @@ private val middleEnd = NamedCompilerPhase(
                 functionsWithoutBoundCheck
 )
 
-private val singleCompilation = NamedCompilerPhase(
+private val singleCompilation = SameTypeNamedCompilerPhase(
         name = "SingleCompilation",
         description = "Single compilation",
         lower = entireBackend
