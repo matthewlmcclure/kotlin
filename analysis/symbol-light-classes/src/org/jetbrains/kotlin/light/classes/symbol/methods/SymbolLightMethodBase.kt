@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
 import org.jetbrains.kotlin.light.classes.symbol.tryGetEffectiveVisibility
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 
-context(KtAnalysisSession)
 internal abstract class SymbolLightMethodBase(
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: KtLightClass,
@@ -90,6 +89,7 @@ internal abstract class SymbolLightMethodBase(
 
     override fun getDefaultValue(): PsiAnnotationMemberValue? = null
 
+    context(KtAnalysisSession)
     protected fun <T> T.computeJvmMethodName(
         defaultName: String,
         containingClass: SymbolLightClassBase,
