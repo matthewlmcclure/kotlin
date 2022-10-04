@@ -65,6 +65,10 @@ internal class JvmWithJavaCompilationDependencyConfigurationsFactory(private val
         val javaSourceSet = this.target.javaSourceSets.maybeCreate(compilationName)
         return KotlinCompilationDependencyConfigurationsContainer(
             target = target, compilationName = compilationName, withRuntime = true,
+            apiConfigurationName = javaSourceSet.apiConfigurationName,
+            implementationConfigurationName = javaSourceSet.implementationConfigurationName,
+            compileOnlyConfigurationName = javaSourceSet.compileOnlyConfigurationName,
+            runtimeOnlyConfigurationName = javaSourceSet.runtimeOnlyConfigurationName,
             compileClasspathConfigurationName = javaSourceSet.compileClasspathConfigurationName,
             runtimeClasspathConfigurationName = javaSourceSet.runtimeClasspathConfigurationName
         )
@@ -100,25 +104,28 @@ private fun interface ConfigurationNaming {
     }
 }
 
+private const val compilation = "compilation"
+
 private fun KotlinCompilationDependencyConfigurationsContainer(
     target: KotlinTarget, compilationName: String, withRuntime: Boolean,
     naming: ConfigurationNaming = ConfigurationNaming.Default(target, compilationName),
+    apiConfigurationName: String = naming.name(compilation, API),
+    implementationConfigurationName: String = naming.name(compilation, IMPLEMENTATION),
+    compileOnlyConfigurationName: String = naming.name(compilation, COMPILE_ONLY),
+    runtimeOnlyConfigurationName: String = naming.name(compilation, RUNTIME_ONLY),
     compileClasspathConfigurationName: String = naming.name("compileClasspath"),
     runtimeClasspathConfigurationName: String = naming.name("runtimeClasspath")
 ): KotlinCompilationDependencyConfigurationsContainer {
     val compilationCoordinates = "${target.disambiguationClassifier}/$compilationName"
-    val compilation = "compilation"
 
-    fun name(vararg parts: String) = naming.name(*parts)
-
-    val apiConfiguration = target.project.configurations.maybeCreate(name(compilation, API)).apply {
+    val apiConfiguration = target.project.configurations.maybeCreate(apiConfigurationName).apply {
         isVisible = false
         isCanBeConsumed = false
         isCanBeResolved = false
         description = "API dependencies for $compilationCoordinates"
     }
 
-    val implementationConfiguration = target.project.configurations.maybeCreate(name(compilation, IMPLEMENTATION)).apply {
+    val implementationConfiguration = target.project.configurations.maybeCreate(implementationConfigurationName).apply {
         extendsFrom(apiConfiguration)
         isVisible = false
         isCanBeConsumed = false
@@ -126,7 +133,7 @@ private fun KotlinCompilationDependencyConfigurationsContainer(
         description = "Implementation only dependencies for $compilationCoordinates."
     }
 
-    val compileOnlyConfiguration = target.project.configurations.maybeCreate(name(compilation, COMPILE_ONLY)).apply {
+    val compileOnlyConfiguration = target.project.configurations.maybeCreate(compileOnlyConfigurationName).apply {
         isCanBeConsumed = false
         setupAsLocalTargetSpecificConfigurationIfSupported(target)
         attributes.attribute(Category.CATEGORY_ATTRIBUTE, target.project.categoryByName(Category.LIBRARY))
@@ -135,7 +142,7 @@ private fun KotlinCompilationDependencyConfigurationsContainer(
         description = "Compile only dependencies for $compilationCoordinates."
     }
 
-    val runtimeOnlyConfiguration = target.project.configurations.maybeCreate(name(compilation, RUNTIME_ONLY)).apply {
+    val runtimeOnlyConfiguration = target.project.configurations.maybeCreate(runtimeOnlyConfigurationName).apply {
         isVisible = false
         isCanBeConsumed = false
         isCanBeResolved = false
