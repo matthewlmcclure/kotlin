@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.gradle.dsl.CompilerJsOptionsDefault
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinCompilationData
@@ -61,7 +62,7 @@ abstract class KotlinJsIrLink @Inject constructor(
 
     @Transient
     @get:Internal
-    internal lateinit var compilation: KotlinCompilationData<*>
+    internal lateinit var compilation: KotlinCompilation<*>
 
     @Transient
     @get:Internal
