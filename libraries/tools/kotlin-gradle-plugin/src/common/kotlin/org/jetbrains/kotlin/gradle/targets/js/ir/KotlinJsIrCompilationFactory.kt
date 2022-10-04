@@ -7,8 +7,8 @@ package org.jetbrains.kotlin.gradle.targets.js.ir
 
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinCompilationFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinOnlyTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory.JsCompilationSourceSetsContainerFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory.JsCompilerOptionsFactory
+import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory.JsIrCompilationSourceSetsContainerFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory.JsKotlinCompilationDependencyConfigurationsFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory.KotlinCompilationImplFactory
 
@@ -16,7 +16,7 @@ class KotlinJsIrCompilationFactory internal constructor(
     override val target: KotlinOnlyTarget<KotlinJsIrCompilation>,
     private val compilationImplFactory: KotlinCompilationImplFactory = KotlinCompilationImplFactory(
         compilerOptionsFactory = JsCompilerOptionsFactory,
-        compilationSourceSetsContainerFactory = JsCompilationSourceSetsContainerFactory,
+        compilationSourceSetsContainerFactory = JsIrCompilationSourceSetsContainerFactory,
         compilationDependencyConfigurationsFactory = JsKotlinCompilationDependencyConfigurationsFactory
     )
 ) : KotlinCompilationFactory<KotlinJsIrCompilation> {

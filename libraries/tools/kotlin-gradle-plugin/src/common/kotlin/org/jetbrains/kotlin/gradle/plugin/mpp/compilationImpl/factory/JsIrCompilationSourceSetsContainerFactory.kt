@@ -8,10 +8,10 @@ package org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.factory
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationSourceSetsContainer
-import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 
-internal object JsCompilationSourceSetsContainerFactory : KotlinCompilationImplFactory.KotlinCompilationSourceSetsContainerFactory {
+internal object JsIrCompilationSourceSetsContainerFactory : KotlinCompilationImplFactory.KotlinCompilationSourceSetsContainerFactory {
     override fun create(target: KotlinTarget, compilationName: String): KotlinCompilationSourceSetsContainer {
         return KotlinCompilationSourceSetsContainer(
             target.project.kotlinExtension.sourceSets.maybeCreate(defaultSourceSetName(target, compilationName))
@@ -19,12 +19,10 @@ internal object JsCompilationSourceSetsContainerFactory : KotlinCompilationImplF
     }
 
     private fun defaultSourceSetName(target: KotlinTarget, compilationName: String): String {
-        val classifier = if (target is KotlinJsTarget && target.irTarget != null)
-            target.disambiguationClassifierInPlatform
-        else target.disambiguationClassifier
-
         return lowerCamelCaseName(
-            classifier,
+            if (target is KotlinJsIrTarget && target.mixedMode)
+                target.disambiguationClassifierInPlatform
+            else target.disambiguationClassifier,
             compilationName
         )
     }
