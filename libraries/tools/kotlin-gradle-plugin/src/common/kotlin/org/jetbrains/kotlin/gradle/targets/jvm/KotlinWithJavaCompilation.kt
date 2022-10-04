@@ -15,11 +15,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
 import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationToRunnableFiles
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
-import org.jetbrains.kotlin.gradle.plugin.mpp.compilationDetailsImpl.WithJavaCompilationDetails
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationImpl
-import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
-import org.jetbrains.kotlin.gradle.utils.named
 import javax.inject.Inject
 
 open class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO : CompilerCommonOptions> @Inject internal constructor(
@@ -50,47 +46,5 @@ open class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO
 
     override val relatedConfigurationNames: List<String>
         get() = compilation.relatedConfigurationNames
-
-}
-
-abstract class oKotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO : CompilerCommonOptions> @Inject constructor(
-    target: KotlinWithJavaTarget<KotlinOptionsType, CO>,
-    name: String,
-    override val defaultSourceSet: KotlinSourceSet,
-    compilerOptions: HasCompilerOptions<CO>,
-    kotlinOptions: KotlinOptionsType
-) : AbstractKotlinCompilationToRunnableFiles<KotlinOptionsType>(
-    WithJavaCompilationDetails<KotlinOptionsType, CO>(target, name, defaultSourceSet, { compilerOptions }, { kotlinOptions })
-), KotlinCompilationWithResources<KotlinOptionsType> {
-    lateinit var javaSourceSet: SourceSet
-
-    override val processResourcesTaskName: String
-        get() = javaSourceSet.processResourcesTaskName
-
-    override val runtimeOnlyConfigurationName: String
-        get() = javaSourceSet.runtimeOnlyConfigurationName
-
-    override val implementationConfigurationName: String
-        get() = javaSourceSet.implementationConfigurationName
-
-    override val apiConfigurationName: String
-        get() = javaSourceSet.apiConfigurationName
-
-    override val compileOnlyConfigurationName: String
-        get() = javaSourceSet.compileOnlyConfigurationName
-
-    override val compileAllTaskName: String
-        get() = javaSourceSet.classesTaskName
-
-    fun source(javaSourceSet: SourceSet) {
-        with(target.project) {
-            afterEvaluate {
-                tasks.named<AbstractKotlinCompile<*>>(compileKotlinTaskName).configure {
-                    it.setSource(javaSourceSet.java)
-                }
-            }
-        }
-    }
-
 
 }
