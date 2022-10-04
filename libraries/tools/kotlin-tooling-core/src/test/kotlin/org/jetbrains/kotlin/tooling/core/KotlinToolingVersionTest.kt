@@ -314,8 +314,10 @@ class KotlinToolingVersionTest {
     fun illegalVersionString() {
         assertFailsWith<IllegalArgumentException> { KotlinToolingVersion("x") }
         assertFailsWith<IllegalArgumentException> { KotlinToolingVersion("1.6.20.1") }
+        assertNull(KotlinToolingVersionOrNull(""))
         assertNull(KotlinToolingVersionOrNull("x"))
         assertNull(KotlinToolingVersionOrNull("1.6.20.1"))
+        assertNull(KotlinToolingVersionOrNull("1.6.20-x"))
     }
 
     private fun assertBuildNumber(buildNumber: Int?, version: String, message: String? = null) {

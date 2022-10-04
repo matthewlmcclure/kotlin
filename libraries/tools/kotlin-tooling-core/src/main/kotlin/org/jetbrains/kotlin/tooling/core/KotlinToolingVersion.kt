@@ -26,12 +26,16 @@ fun KotlinToolingVersionOrNull(kotlinVersionString: String): KotlinToolingVersio
     val baseVersionSplit = baseVersion.split(".")
     if (!(baseVersionSplit.size == 2 || baseVersionSplit.size == 3)) return null
 
-    return KotlinToolingVersion(
-        major = baseVersionSplit[0].toIntOrNull() ?: return null,
-        minor = baseVersionSplit[1].toIntOrNull() ?: return null,
-        patch = baseVersionSplit.getOrNull(2)?.let { it.toIntOrNull() ?: return null } ?: 0,
-        classifier = classifier
-    )
+    return try {
+        KotlinToolingVersion(
+            major = baseVersionSplit[0].toIntOrNull() ?: return null,
+            minor = baseVersionSplit[1].toIntOrNull() ?: return null,
+            patch = baseVersionSplit.getOrNull(2)?.let { it.toIntOrNull() ?: return null } ?: 0,
+            classifier = classifier
+        )
+    } catch (t: IllegalArgumentException) {
+        null
+    }
 }
 
 class KotlinToolingVersion(
