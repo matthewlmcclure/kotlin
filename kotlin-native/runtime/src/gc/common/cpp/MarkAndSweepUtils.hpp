@@ -104,7 +104,9 @@ MarkStats Mark(typename Traits::MarkQueue& markQueue) noexcept {
                 RuntimeAssert(
                         weakCounter->heap(), "Weak counter must be a heap object. object=%p counter=%p permanent=%d local=%d", top,
                         weakCounter, weakCounter->permanent(), weakCounter->local());
-                Traits::enqueue(markQueue, weakCounter);
+                Traits::mark(weakCounter);
+                // WeakReferenceCounter is empty, but keeping this just in case.
+                Traits::processInMark(markQueue, weakCounter);
             }
         }
     }

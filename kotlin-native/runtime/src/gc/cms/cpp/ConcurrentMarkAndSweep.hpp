@@ -138,6 +138,11 @@ struct MarkTraits {
         queue.try_push_front(objectData);
     }
 
+    static void mark(ObjHeader* object) noexcept {
+        auto& objectData = mm::ObjectFactory<gc::ConcurrentMarkAndSweep>::NodeRef::From(object).ObjectData();
+        objectData.setNext(reinterpret_cast<ConcurrentMarkAndSweep::ObjectData*>(1));
+    }
+
     static void processInMark(MarkQueue& markQueue, ObjHeader* object) noexcept {
         auto process = object->type_info()->processObjectInMark;
         RuntimeAssert(process != nullptr, "Got null processObjectInMark for object %p", object);
