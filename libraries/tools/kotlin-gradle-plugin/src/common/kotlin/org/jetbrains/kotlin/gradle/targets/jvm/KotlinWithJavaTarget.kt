@@ -12,11 +12,14 @@ import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.Directory
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.CompilerCommonOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
 import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
+import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactory
 import org.jetbrains.kotlin.gradle.tasks.KOTLIN_BUILD_DIR_NAME
 import java.io.File
 import javax.inject.Inject
@@ -62,3 +65,9 @@ abstract class KotlinWithJavaTarget<KotlinOptionsType : KotlinCommonOptions, CO 
 }
 
 private fun sanitizeFileName(candidate: String): String = candidate.filter { it.isLetterOrDigit() }
+
+internal val KotlinWithJavaTarget<*, *>.javaSourceSets: SourceSetContainer
+    get() = project.gradle
+        .variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
+        .getInstance(project)
+        .sourceSets
