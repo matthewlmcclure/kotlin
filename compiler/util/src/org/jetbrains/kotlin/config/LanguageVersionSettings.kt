@@ -258,6 +258,7 @@ enum class LanguageFeature(
     RangeUntilOperator(KOTLIN_1_8), // KT-15613
     GenericInlineClassParameter(sinceVersion = KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-32162
     LightweightLambdas(KOTLIN_1_8, defaultState = State.DISABLED),
+    CustomEqualsInInlineClasses(KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-24874
 
     // 1.9
 

@@ -21354,6 +21354,12 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
         }
 
         @Test
+        @TestMetadata("inlineClassBothEqualsOverride.kt")
+        public void testInlineClassBothEqualsOverride() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/inlineClassBothEqualsOverride.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+        }
+
+        @Test
         @TestMetadata("inlineClassEqualityShouldUseTotalOrderForFloatingPointData.kt")
         public void testInlineClassEqualityShouldUseTotalOrderForFloatingPointData() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/inlineClassEqualityShouldUseTotalOrderForFloatingPointData.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
@@ -21363,6 +21369,18 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
         @TestMetadata("inlineClassEqualityShouldUseTotalOrderForFloatingPointDataGeneric.kt")
         public void testInlineClassEqualityShouldUseTotalOrderForFloatingPointDataGeneric() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/inlineClassEqualityShouldUseTotalOrderForFloatingPointDataGeneric.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+        }
+
+        @Test
+        @TestMetadata("inlineClassEqualsOverride.kt")
+        public void testInlineClassEqualsOverride() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/inlineClassEqualsOverride.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+        }
+
+        @Test
+        @TestMetadata("inlineClassEqualsOverridenForCollections.kt")
+        public void testInlineClassEqualsOverridenForCollections() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/inlineClassEqualsOverridenForCollections.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
         }
 
         @Test
@@ -21387,6 +21405,12 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
         @TestMetadata("inlineClassFunctionInvokeGeneric.kt")
         public void testInlineClassFunctionInvokeGeneric() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/inlineClassFunctionInvokeGeneric.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+        }
+
+        @Test
+        @TestMetadata("inlineClassHashCodeOverride.kt")
+        public void testInlineClassHashCodeOverride() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/inlineClassHashCodeOverride.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
         }
 
         @Test

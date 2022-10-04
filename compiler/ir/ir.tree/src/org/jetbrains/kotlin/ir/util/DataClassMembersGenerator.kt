@@ -128,6 +128,17 @@ abstract class DataClassMembersGenerator(
         fun generateEqualsMethodBody(properties: List<IrProperty>) {
             val irType = irClass.defaultType
 
+            val typedEqualsFunction = irClass.functions.singleOrNull { it.descriptor.isTypedEqualsInInlineClass() }
+            if (irClass.isSingleFieldValueClass && typedEqualsFunction != null) {
+                +irIfThenReturnFalse(irNotIs(irOther(), irType))
+                val otherCasted = irAs(irOther(), irType)
+                +irReturn(irCall(typedEqualsFunction).apply {
+                    putArgument(typedEqualsFunction.dispatchReceiverParameter!!, irThis())
+                    putValueArgument(0, otherCasted)
+                })
+                return
+            }
+
             if (!irClass.isSingleFieldValueClass) {
                 +irIfThenReturnTrue(irEqeqeq(irThis(), irOther()))
             }
