@@ -14,6 +14,8 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
 import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationImpl
+import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
+import org.jetbrains.kotlin.gradle.utils.named
 import javax.inject.Inject
 
 open class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO : CompilerCommonOptions> @Inject internal constructor(
@@ -32,4 +34,13 @@ open class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO
     override val processResourcesTaskName: String
         get() = compilation.processResourcesTaskName ?: error("Missing 'processResourcesTaskName'")
 
+    fun source(javaSourceSet: SourceSet) {
+        with(target.project) {
+            afterEvaluate {
+                tasks.named<AbstractKotlinCompile<*>>(compileKotlinTaskName).configure {
+                    it.setSource(javaSourceSet.java)
+                }
+            }
+        }
+    }
 }
